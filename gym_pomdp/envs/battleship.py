@@ -59,7 +59,6 @@ class BattleGrid(Grid):
         for idx in range(self.n_tiles):
             self.board.append(Cell())
         self.board = np.asarray(self.board).reshape((self.x_size, self.y_size))
-        print(self.board)
 
 
 class BattleShipEnv(Env):

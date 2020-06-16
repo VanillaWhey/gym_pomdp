@@ -152,6 +152,7 @@ class PocEnv(Env):
         # self.observation_space = Discrete(14)
         self._reward_range = 100
         self._discount = .95
+        self.done = False
 
     def seed(self, seed=None):
         np.random.seed(seed)
@@ -218,12 +219,14 @@ class PocEnv(Env):
         ob = self._make_ob(action)
 
         if self.state.food_pos[self.grid.get_index(self.state.agent_pos)]:
+            self.state.food_pos[self.grid.get_index(self.state.agent_pos)] = 0
             if sum(self.state.food_pos) == 0:
                 reward += 1000
                 self.done = True
-            if self.is_power(self.state.agent_pos):
-                self.state.power_step = config["_power_steps"]
-            reward += 10
+
+        if self.is_power(self.state.agent_pos):
+            self.state.power_step = config["_power_steps"]
+        reward += 10
 
         return ob, reward, self.done, {"state": self.state}
 
@@ -291,7 +294,8 @@ class PocEnv(Env):
             return
         if mode == 'human':
             if not hasattr(self, "gui"):
-                self.gui = PocGui(board_size=self.grid.get_size, maze=self.board["_maze"], state=self.state)
+                self.gui = PocGui(board_size=self.grid.get_size,
+                                  maze=self.board["_maze"], state=self.state)
             else:
                 self.gui.render(state=self.state)
 
@@ -305,11 +309,6 @@ class PocEnv(Env):
         pass
 
     def _get_init_state(self):
-        # create walls
-        # for tile in self.grid:
-        #     value = config["maze"][tile.key[0]]
-        #     self.grid.set_value(value, coord=tile.key)
-
         self.state = PocState()
         self.state.agent_pos = Coord(*self.board["_poc_home"])
         ghost_home = Coord(*self.board["_ghost_home"])
@@ -318,9 +317,11 @@ class PocEnv(Env):
             pos = Coord(ghost_home.x + g % 2, ghost_home.y + g // 2)
             self.state.ghosts.append(Ghost(pos, direction=-1))
 
-        self.state.food_pos = np.random.binomial(1, config["_food_prob"], size=self.grid.n_tiles)
+        self.state.food_pos = np.random.binomial(1, config["_food_prob"],
+                                                 size=self.grid.n_tiles)
         # only make free space food
-        idx = (self.board["_maze"] > 0) & (self.state.food_pos.reshape(self.board["_maze"].shape) > 0)
+        idx = (self.board["_maze"] > 0) &\
+              (self.state.food_pos.reshape(self.board["_maze"].shape) > 0)
         self.board["_maze"][idx] = 4
         self.state.power_step = 0
         return self.state
