@@ -104,6 +104,7 @@ class PocState(object):
         self.ghosts = []
         self.food_pos = []
         self.power_step = 0
+        self.action = 0
 
 
 class Ghost(object):
@@ -183,6 +184,8 @@ class PocEnv(Env):
     def step(self, action):
         assert self.action_space.contains(action)
         assert self.done is False
+
+        self.state.action = action
 
         reward = -1
         next_pos = self._next_pos(self.state.agent_pos, action)

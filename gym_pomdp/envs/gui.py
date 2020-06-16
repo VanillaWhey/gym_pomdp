@@ -251,6 +251,15 @@ class PocGui(GridGui):
     _assets = dict(
         _POWER=os.path.join(PATH, "assets/power.png"),
         _FOOD=os.path.join(PATH, "assets/food.png"),
+        _POC_0=os.path.join(PATH, "assets/poc_r.png"),
+        _POC_1=os.path.join(PATH, "assets/poc_d.png"),
+        _POC_2=os.path.join(PATH, "assets/poc_l.png"),
+        _POC_3=os.path.join(PATH, "assets/poc_u.png"),
+        _GHOST_0=os.path.join(PATH, "assets/ghost1.png"),
+        _GHOST_1=os.path.join(PATH, "assets/ghost2.png"),
+        _GHOST_2=os.path.join(PATH, "assets/ghost3.png"),
+        _GHOST_3=os.path.join(PATH, "assets/ghost4.png"),
+        _GHOST_P=os.path.join(PATH, "assets/ghost_p.png")
     )
 
     def __init__(self, state, board_size=(5,5), maze=None):
@@ -277,13 +286,16 @@ class PocGui(GridGui):
         # reset board
         self.init_board(self.maze)
         # draw pocman
-        if self.state.power_step > 0:
-            self.board[self.__idx(self.state.agent_pos)].draw(color=pygame.Color("green"))
-        else:
-            self.board[self.__idx(self.state.agent_pos)].draw(color=pygame.Color("yellow"))
+        self.board[self.__idx(self.state.agent_pos)].draw(img=self.assets["_POC_" + str(self.state.action)], color=pygame.Color("black"))
         # draw ghosts
+        g = 0
         for ghost in [self.__idx(ghost.pos) for ghost in self.state.ghosts]:
-            self.board[ghost].draw(color=pygame.Color("gray"))
+            if self.state.power_step > 0:
+                ghost_img = self.assets["_GHOST_P"]
+            else:
+                ghost_img = self.assets["_GHOST_" + str(g)]
+            self.board[ghost].draw(img=ghost_img, color=pygame.Color("black"))
+            g += 1
 
     def render(self, state):
         self.state = state

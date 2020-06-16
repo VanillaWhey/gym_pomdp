@@ -44,5 +44,4 @@ David Silver and Joel Veness made this possible by releasing the code POMCP open
 And [@manuel](https://github.com/manuel-delverme) for proof test.
 
 ## TODO
-- improve rendering of Pocman
 - Double check Pocman obervations with original
