@@ -297,7 +297,7 @@ class PocGui(GridGui):
             self.board[ghost].draw(img=ghost_img, color=pygame.Color("black"))
             g += 1
 
-    def render(self, state):
+    def render(self, state, msg=None):
         self.state = state
         self.maze[self.state.agent_pos] = 1
         self.draw(update_board=True)
@@ -306,3 +306,57 @@ class PocGui(GridGui):
 
     def __idx(self, pos):
         return pos[0] * self.x_size + pos[1]
+
+
+class TMazeGui(GridGui):
+    _assets = dict(_ROBOT=os.path.join(FILE_PATH, "r2d2.png"))
+
+    def __init__(self, state, board_size=(5,3), goal=-1, tile_size=50):
+        super().__init__(*board_size, tile_size=self.tile_size(board_size[0]))
+        self.state = state
+        self.last = state
+        self. goal = (2 + goal) * (self.x_size) - 1
+        self.init_board()
+        self.draw(update_board=True)
+        pygame.display.update()
+        GridGui._dispatch()
+
+    def init_board(self):
+        for idx in range(self.n_tiles):
+            if self.x_size <= idx < self.x_size * 2 or (idx + 1) % self.x_size == 0:
+                self.board[idx].draw(color=pygame.Color("white"))
+            else:
+                self.board[idx].draw(color=pygame.Color("black"))
+            if idx == self.goal:
+                self.board[idx].draw(color=pygame.Color("yellow"))
+
+    def draw(self, update_board=False):
+        # draw robot
+        self.board[self.x_size + self.last].draw(color=pygame.Color("white"))
+        if self.state >= 0:
+            self.board[self.x_size + self.state].draw(img=self.assets["_ROBOT"])
+        else:
+            idx = (-self.state) * self.x_size - 1
+            if idx == self.goal:
+                color = pygame.Color("yellow")
+            else:
+                color=pygame.Color("white")
+
+            self.board[idx].draw(img=self.assets["_ROBOT"], color=color)
+
+    def render(self, state, msg=None):
+        self.last = self.state
+        self.state = state
+        self.draw(update_board=True)
+        self.task_bar(msg)
+        pygame.display.update()
+        GridGui._dispatch()
+
+    def tile_size(self, length):
+        print(length)
+        if length >= 70:
+            return 25
+        if length >= 50:
+            return 30
+        return 50
+

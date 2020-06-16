@@ -37,7 +37,7 @@ MINI = dict(
     _num_ghosts=3,
     _ghost_range=4,  # 4, 6
     _ghost_home=(4, 2),  # 4,2  8,6
-    _poc_home=(5, 8),  # 5, 8,10
+    _poc_home=(8, 5),  # 5, 8,10
     _passage_y=5,  # 5, 10
 )
 NORMAL = dict(
@@ -59,12 +59,12 @@ NORMAL = dict(
                     [0, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 3, 0, 3, 0, 3, 0],
                     [3, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 3],
                     [3, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 3],
-                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]], dtype=np.int8),
+                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]],
+                   dtype=np.int8),
     _num_ghosts=4,
     _ghost_range=6,  # 4, 6
-    _ghost_home=(8, 6),  # 4,2  8,6
-    # _poc_home=(8, 10),  # 5, 8,10
-    _poc_home=(0, 0),  # 5, 8,10
+    _ghost_home=(6, 8),  # 4,2  8,6
+    _poc_home=(10, 8),  # 5, 8,10
     _passage_y=10,  # 5, 10
 )
 
@@ -79,11 +79,11 @@ config = dict(
 
 
 def check_flags(flags, bit):
-    return (flags and (1 << bit)) != 0
+    return (flags & (1 << bit)) != 0
 
 
 def set_flags(flags, bit):
-    return flags or 1 << bit
+    return flags | 1 << bit
 
 
 def can_move(ghost, d):
@@ -120,6 +120,7 @@ class Ghost(object):
     def reset(self):
         self.pos = self.home
         self.direction = -1
+
 
 class PocGrid(Grid):
     def __init__(self, board):
@@ -177,8 +178,9 @@ class PocEnv(Env):
 
     def _generate_legal(self):
         actions = []
-        for action in Action:
-            if self.grid.is_inside(self.state.agent_pos + Moves.get_coord(action.value)):
+        for action in self.action_space.n:
+            if self.grid.is_inside(self.state.agent_pos +
+                                   Moves.get_coord(action.value)):
                 actions.append(action.value)
         return actions
 
@@ -216,7 +218,7 @@ class PocEnv(Env):
                 reward += - 100
                 self.done = True
 
-        ob = self._make_ob(action)
+        obs = self._make_ob()
 
         if self.state.food_pos[self.grid.get_index(self.state.agent_pos)]:
             self.state.food_pos[self.grid.get_index(self.state.agent_pos)] = 0
@@ -228,39 +230,44 @@ class PocEnv(Env):
             self.state.power_step = config["_power_steps"]
         reward += 10
 
-        return ob, reward, self.done, {"state": self.state}
+        return obs, reward, self.done, {"state": self.state}
 
-    def _make_ob(self, action):
+    def _make_ob(self):
         # TODO fix me
-        ob = 0
+        obs = 0
         for d in range(self.action_space.n):
-            if self._see_ghost(action) > 0:
-                ob = set_flags(ob, d)
+            if self._see_ghost(d) >= 0:
+                obs = set_flags(obs, d)
+                print(obs)
             next_pos = self._next_pos(self.state.agent_pos, direction=d)
             if next_pos.is_valid() and self.is_passable(next_pos):
-                ob = set_flags(ob, d + self.action_space.n)
+                obs = set_flags(obs, d + self.action_space.n)
         if self._smell_food():
-            ob = set_flags(ob, 8)
+            obs = set_flags(obs, 8)
         if self._hear_ghost(self.state):
-            ob = set_flags(ob, 9)
-        return ob
+            obs = set_flags(obs, 9)
+        return obs
 
     def _encode_state(self, state):
         poc_idx = self.grid.get_index(state.agent_pos)
-        ghosts = [(self.grid.get_index(ghost.pos), ghost.direction) for ghost in state.ghosts]
-        return np.concatenate([[poc_idx], *ghosts, state.food_pos, [state.power_step]])
+        ghosts = [(self.grid.get_index(ghost.pos), ghost.direction)
+                  for ghost in state.ghosts]
+
+        return np.concatenate([[poc_idx], *ghosts, state.food_pos,
+                               [state.power_step]])
 
     def _decode_state(self, state):
         poc_state = PocState(Coord(*self.grid.get_coord(state[0])))
         ghosts = np.split(state[1: self.board["_num_ghosts"] * 3], 1)
         for g in ghosts:
-            poc_state.ghosts.append(Ghost(pos=self.grid.get_coord(g[0]), direction=g[1]))
+            poc_state.ghosts.append(Ghost(pos=self.grid.get_coord(g[0]),
+                                          direction=g[1]))
         poc_state.power_step = state[-1]
         poc_state.food_pos = state[self.board["_num_ghosts"] * 3: -1].tolist()
         return poc_state
 
     def _compute_prob(self, action, next_state, ob):
-        return int(ob == self._make_ob(action))
+        return int(ob == self._make_ob())
 
     def _see_ghost(self, action):
         eye_pos = self.state.agent_pos + Moves.get_coord(action)
@@ -269,7 +276,7 @@ class PocEnv(Env):
                 if ghost.pos == eye_pos:
                     return g
             eye_pos += Moves.get_coord(action)
-            if not self.grid.is_inside(eye_pos) or not self.is_passable(eye_pos):
+            if not(self.grid.is_inside(eye_pos) and self.is_passable(eye_pos)):
                 break
         return -1
 
@@ -300,10 +307,9 @@ class PocEnv(Env):
                 self.gui.render(state=self.state)
 
     def reset(self):
-        self.t = 0
         self.done = False
         self._get_init_state()
-        return 0
+        return self._make_ob()
 
     def close(self):
         pass
@@ -401,15 +407,13 @@ class PocEnv(Env):
 
 
 if __name__ == "__main__":
-    env = PocEnv("micro")
+    env = PocEnv("normal")
     env.reset()
-    r = 0
-    for i in range(100):
-        action = np.random.choice(env._generate_legal(), 1)[0]
-        ob, rw, done, info = env.step(action)
-        # state = env._encode_state(info['state'])
-        # poc_state = env._decode_state(state)
-        print(ob)
-        print(rw)
-        if done:
-            break
+    env.render()
+    done = False
+    while not done:
+        a = env.action_space.sample()
+        ob, r, done, s = env.step(a)
+        env.render()
+        print("action", a, "obs", "{:010b}".format(ob), "reward", r)
+    env.close()

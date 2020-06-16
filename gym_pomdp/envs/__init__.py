@@ -6,3 +6,4 @@ from gym_pomdp.envs.rock import StochasticRockEnv
 from gym_pomdp.envs.simple import TestEnv
 from gym_pomdp.envs.tag import TagEnv
 from gym_pomdp.envs.tiger import TigerEnv
+from gym_pomdp.envs.t_maze import TMazeEnv
