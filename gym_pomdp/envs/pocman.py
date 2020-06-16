@@ -33,11 +33,12 @@ MINI = dict(
                     [3, 3, 3, 0, 0, 0, 0, 3, 3, 3],
                     [3, 0, 3, 3, 3, 3, 3, 3, 0, 3],
                     [3, 0, 0, 3, 0, 0, 3, 0, 0, 3],
-                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]], dtype=np.int8),
+                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]],
+                   dtype=np.int8).transpose(),
     _num_ghosts=3,
     _ghost_range=4,  # 4, 6
     _ghost_home=(4, 2),  # 4,2  8,6
-    _poc_home=(8, 5),  # 5, 8,10
+    _poc_home=(5, 8),  # 5, 8,10
     _passage_y=5,  # 5, 10
 )
 NORMAL = dict(
@@ -60,11 +61,11 @@ NORMAL = dict(
                     [3, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 3],
                     [3, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 3],
                     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]],
-                   dtype=np.int8),
+                   dtype=np.int8).transpose(),
     _num_ghosts=4,
     _ghost_range=6,  # 4, 6
-    _ghost_home=(6, 8),  # 4,2  8,6
-    _poc_home=(10, 8),  # 5, 8,10
+    _ghost_home=(8, 6),  # 4,2  8,6
+    _poc_home=(8, 10),  # 5, 8,10
     _passage_y=10,  # 5, 10
 )
 
@@ -217,28 +218,26 @@ class PocEnv(Env):
             else:
                 reward += - 100
                 self.done = True
-
-        obs = self._make_ob()
-
-        if self.state.food_pos[self.grid.get_index(self.state.agent_pos)]:
+        # don't eat power up when hit by a ghost already
+        elif self.is_power(self.state.agent_pos):
+            self.state.power_step = config["_power_steps"]
+            reward += 10
+        # same for food
+        elif self.state.food_pos[self.grid.get_index(self.state.agent_pos)]:
             self.state.food_pos[self.grid.get_index(self.state.agent_pos)] = 0
             if sum(self.state.food_pos) == 0:
                 reward += 1000
                 self.done = True
 
-        if self.is_power(self.state.agent_pos):
-            self.state.power_step = config["_power_steps"]
-        reward += 10
+        obs = self._make_ob()
 
         return obs, reward, self.done, {"state": self.state}
 
     def _make_ob(self):
-        # TODO fix me
         obs = 0
         for d in range(self.action_space.n):
             if self._see_ghost(d) >= 0:
                 obs = set_flags(obs, d)
-                print(obs)
             next_pos = self._next_pos(self.state.agent_pos, direction=d)
             if next_pos.is_valid() and self.is_passable(next_pos):
                 obs = set_flags(obs, d + self.action_space.n)
@@ -356,8 +355,8 @@ class PocEnv(Env):
             self._move_random(g)
 
     def _move_aggressive(self, g):
-        # if not np.random.binomial(1, p=config["_chase_prob"]):
-        #     return self._move_random(g)
+        if not np.random.binomial(1, p=config["_chase_prob"]):
+            return self._move_random(g)
 
         best_dist = self.grid.x_size + self.grid.y_size
         best_pos = self.state.ghosts[g].pos

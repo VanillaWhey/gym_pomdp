@@ -353,7 +353,6 @@ class TMazeGui(GridGui):
         GridGui._dispatch()
 
     def tile_size(self, length):
-        print(length)
         if length >= 70:
             return 25
         if length >= 50:
