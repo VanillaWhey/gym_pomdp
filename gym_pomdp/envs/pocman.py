@@ -5,6 +5,7 @@ from gym import Env
 from gym.spaces import Discrete
 
 from gym_pomdp.envs.coord import Grid, Coord, Moves
+from gym_pomdp.envs.gui import PocGui
 
 MICRO = dict(
     _maze=np.array([
@@ -40,20 +41,30 @@ MINI = dict(
     _passage_y=5,  # 5, 10
 )
 NORMAL = dict(
-    _maze=np.array([[3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-                    [3, 0, 0, 3, 0, 0, 3, 0, 0, 3],
-                    [3, 0, 3, 3, 3, 3, 3, 3, 0, 3],
-                    [3, 3, 3, 0, 0, 0, 0, 3, 3, 3],
-                    [0, 0, 3, 0, 1, 1, 3, 3, 0, 0],
-                    [0, 0, 3, 0, 1, 1, 3, 3, 0, 0],
-                    [3, 3, 3, 0, 0, 0, 0, 3, 3, 3],
-                    [3, 0, 3, 3, 3, 3, 3, 3, 0, 3],
-                    [3, 0, 0, 3, 0, 0, 3, 0, 0, 3],
-                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3]], dtype=np.int8),
-    _num_ghots=4,
+    _maze=np.array([[3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                    [3, 0, 0, 3, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 0, 3],
+                    [7, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 7],
+                    [3, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 3],
+                    [3, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 3],
+                    [0, 0, 0, 3, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 0, 0],
+                    [0, 0, 0, 3, 0, 1, 1, 1, 1, 1, 1, 1, 0, 3, 0, 0, 0],
+                    [0, 0, 0, 3, 0, 1, 0, 1, 1, 1, 0, 1, 0, 3, 0, 0, 0],
+                    [1, 1, 1, 3, 0, 1, 0, 1, 1, 1, 0, 1, 0, 3, 1, 1, 1],
+                    [0, 0, 0, 3, 0, 1, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 0],
+                    [0, 0, 0, 3, 0, 1, 1, 1, 1, 1, 1, 1, 0, 3, 0, 0, 0],
+                    [0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0],
+                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                    [3, 0, 0, 3, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 0, 3],
+                    [7, 3, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 7],
+                    [0, 3, 0, 3, 0, 3, 0, 0, 0, 0, 0, 3, 0, 3, 0, 3, 0],
+                    [3, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 0, 3, 3, 3, 3],
+                    [3, 0, 0, 0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 3],
+                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]], dtype=np.int8),
+    _num_ghosts=4,
     _ghost_range=6,  # 4, 6
     _ghost_home=(8, 6),  # 4,2  8,6
-    _poc_home=(8, 10),  # 5, 8,10
+    # _poc_home=(8, 10),  # 5, 8,10
+    _poc_home=(0, 0),  # 5, 8,10
     _passage_y=10,  # 5, 10
 )
 
@@ -76,6 +87,7 @@ def set_flags(flags, bit):
 
 
 def can_move(ghost, d):
+
     return Grid.opposite(d) != ghost.direction
 
 
@@ -108,24 +120,13 @@ class Ghost(object):
         self.pos = self.home
         self.direction = -1
 
-
-# class PocTile(Tile):
-#     def __init__(self, coord=(0, 0)):
-#         super().__init__(coord)
-
-
 class PocGrid(Grid):
     def __init__(self, board):
         super().__init__(*board.shape)
-        self._board = board
-
-    #
-    # @property
-    # def board(self):
-    #     return self._board
+        self.board = board
 
     def build_board(self, value=0):
-        raise NotImplementedError()
+        pass
 
 
 def select_maze(maze):
@@ -197,8 +198,11 @@ class PocEnv(Env):
         for g, ghost in enumerate(self.state.ghosts):
             if ghost.pos == self.state.agent_pos:
                 hit_ghost = g
-            # move ghost
-            self._move_ghost(g, ghost_range=self.board["_ghost_range"])
+            else:
+                # move ghost
+                self._move_ghost(g, ghost_range=self.board["_ghost_range"])
+                if ghost.pos == self.state.agent_pos:
+                    hit_ghost = g
 
         if hit_ghost >= 0:
             if self.state.power_step > 0:
@@ -280,7 +284,13 @@ class PocEnv(Env):
         return False
 
     def render(self, mode='human', close=False):
-        pass
+        if close:
+            return
+        if mode == 'human':
+            if not hasattr(self, "gui"):
+                self.gui = PocGui(board_size=self.grid.get_size, maze=self.board["_maze"], state=self.state)
+            else:
+                self.gui.render(state=self.state)
 
     def reset(self):
         self.t = 0
@@ -305,7 +315,10 @@ class PocEnv(Env):
             pos = Coord(ghost_home.x + g % 2, ghost_home.y + g // 2)
             self.state.ghosts.append(Ghost(pos, direction=-1))
 
-        self.state.food_pos = np.random.binomial(1, config["_food_prob"], size=self.grid.n_tiles + 1)
+        self.state.food_pos = np.random.binomial(1, config["_food_prob"], size=self.grid.n_tiles)
+        # only make free space food
+        idx = (self.board["_maze"] > 0) & (self.state.food_pos.reshape(self.board["_maze"].shape) > 0)
+        self.board["_maze"][idx] = 4
         self.state.power_step = 0
         return self.state
 
@@ -332,9 +345,9 @@ class PocEnv(Env):
         else:
             self._move_random(g)
 
-    def _move_aggressive(self, g, chase_prob=.75):
-        if not np.random.binomial(1, p=chase_prob):
-            return self._move_random(g)
+    def _move_aggressive(self, g):
+        # if not np.random.binomial(1, p=config["_chase_prob"]):
+        #     return self._move_random(g)
 
         best_dist = self.grid.x_size + self.grid.y_size
         best_pos = self.state.ghosts[g].pos
@@ -352,8 +365,9 @@ class PocEnv(Env):
     def _move_defensive(self, g, defensive_prob=.5):
         if np.random.binomial(1, defensive_prob) and self.state.ghosts[g].direction >= 0:
             self.state.ghosts[g].direction = -1
+            return
 
-        best_dist = self.grid.x_size + self.grid.y_size
+        best_dist = 0
         best_pos = self.state.ghosts[g].pos
         best_dir = -1
         for d in range(self.action_space.n):
@@ -367,14 +381,17 @@ class PocEnv(Env):
         self.state.ghosts[g].update(best_pos, best_dir)
 
     def _move_random(self, g):
-        # there are no dead ends
-        # never switch to opposite direction
+        # there are !!! dead ends
+        # only switch to opposite direction when it failed 10 times (hack)
         ghost_pos = self.state.ghosts[g].pos
+        i = 0
         while True:
             d = self.action_space.sample()
             next_pos = self._next_pos(ghost_pos, d)
-            if next_pos.is_valid() and can_move(self.state.ghosts[g], d):
+            # normal map has dead ends:
+            if next_pos.is_valid() and (can_move(self.state.ghosts[g], d) or i > 10):
                 break
+            i += 1
 
         self.state.ghosts[g].update(next_pos, d)
 

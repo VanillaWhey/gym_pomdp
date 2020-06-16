@@ -78,22 +78,22 @@ class Grid(object):
 
     @staticmethod
     def euclidean_distance(c1, c2):
-        return np.linalg.norm(np.subtract(c1, c2), 1)
+        return np.linalg.norm(np.subtract(c1, c2), 2)
 
     @staticmethod
     def manhattan_distance(c1, c2):
-        return np.sqrt((c1.x - c2.x) ** 2 + (c1.y - c2.y) ** 2)
+        return np.abs(c1.x - c2.x) + np.abs(c1.y - c2.y)
 
     @staticmethod
     def directional_distance(c1, c2, d):
-        if d == 0:
-            return c1.y - c2.y
-        elif d == 1:
-            return c1.x - c2.x
-        elif d == 2:
-            return c2.y - c1.x
-        elif d == 3:
+        if d == 0: # up
+            return c2.y - c1.y
+        elif d == 1: # right
             return c2.x - c1.x
+        elif d == 2: # down
+            return c1.y - c2.x
+        elif d == 3: # left
+            return c1.x - c2.x
         else:
             raise NotImplementedError()
 

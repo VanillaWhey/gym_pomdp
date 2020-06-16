@@ -59,20 +59,21 @@ class BattleGrid(Grid):
         for idx in range(self.n_tiles):
             self.board.append(Cell())
         self.board = np.asarray(self.board).reshape((self.x_size, self.y_size))
+        print(self.board)
 
 
 class BattleShipEnv(Env):
     metadata = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self, board_size=(5, 5), max_len=3):
+    def __init__(self, board_size=(10, 10), ships=[5, 4, 3, 2, 2]):
         self.grid = BattleGrid(board_size)
         self.action_space = Discrete(self.grid.n_tiles)
         self.observation_space = Discrete(len(Obs))
         self.num_obs = 2
         self._reward_range = self.action_space.n / 4.
         self._discount = 1.
-        self.total_remaining = max_len - 1
-        self.max_len = max_len + 1
+        self.total_remaining = len(ships)
+        self.ships = np.sort(ships)[::-1]
 
     def seed(self, seed=None):
         np.random.seed(seed)
@@ -145,7 +146,7 @@ class BattleShipEnv(Env):
                 for ship in self.state.ships:
                     pos = ship.pos
                     obj_pos.append(self.grid.get_index(pos))
-                    for i in range(ship.length):
+                    for i in range(ship.length - 1):
                         pos += Compass.get_coord(ship.direction)
                         obj_pos.append(self.grid.get_index(pos))
                 self.gui = ShipGui(board_size=self.grid.get_size, obj_pos=obj_pos)
@@ -168,9 +169,7 @@ class BattleShipEnv(Env):
         bsstate = ShipState()
         self.grid.build_board()
 
-        for length in reversed(range(2, self.max_len)):
-            # num_ships = 1
-            # for idx in range(num_ships):
+        for length in self.ships:
             while True:  # add one ship of each kind
                 ship = Ship(coord=self.grid.sample(), length=length)
                 if not self.collision(ship, self.grid, bsstate):

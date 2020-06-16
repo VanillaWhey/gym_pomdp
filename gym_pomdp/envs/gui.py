@@ -2,6 +2,7 @@ import os
 from itertools import zip_longest
 
 import pygame
+import numpy as np
 from gym_pomdp.envs.coord import Coord, Tile
 
 PATH = os.path.split(__file__)[0]
@@ -243,3 +244,53 @@ class TigerGui(GridGui):
 
         pygame.display.update()
         TigerGui._dispatch()
+
+
+class PocGui(GridGui):
+    _tile_size = 50
+    _assets = dict(
+        _POWER=os.path.join(PATH, "assets/power.png"),
+        _FOOD=os.path.join(PATH, "assets/food.png"),
+    )
+
+    def __init__(self, state, board_size=(5,5), maze=None):
+        super().__init__(board_size[1], board_size[0], tile_size=self._tile_size)
+        self.state = state
+        self.maze = maze
+        self.draw(update_board=True)
+        pygame.display.update()
+        GridGui._dispatch()
+
+    def init_board(self, maze):
+        m = np.ravel(maze)
+        for idx in range(self.n_tiles):
+            if m[idx] == 4:
+                self.board[idx].draw(img=self.assets["_FOOD"], color=pygame.Color("black"))
+            elif m[idx] == 0:
+                self.board[idx].draw(color=pygame.Color("blue"))
+            elif m[idx] == 3:
+                self.board[idx].draw(img=self.assets["_POWER"] ,color=pygame.Color("black"))
+            else:
+                self.board[idx].draw(color=pygame.Color("black"))
+
+    def draw(self, update_board=False):
+        # reset board
+        self.init_board(self.maze)
+        # draw pocman
+        if self.state.power_step > 0:
+            self.board[self.__idx(self.state.agent_pos)].draw(color=pygame.Color("green"))
+        else:
+            self.board[self.__idx(self.state.agent_pos)].draw(color=pygame.Color("yellow"))
+        # draw ghosts
+        for ghost in [self.__idx(ghost.pos) for ghost in self.state.ghosts]:
+            self.board[ghost].draw(color=pygame.Color("gray"))
+
+    def render(self, state):
+        self.state = state
+        self.maze[self.state.agent_pos] = 1
+        self.draw(update_board=True)
+        pygame.display.update()
+        GridGui._dispatch()
+
+    def __idx(self, pos):
+        return pos[0] * self.x_size + pos[1]

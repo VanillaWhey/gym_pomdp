@@ -11,7 +11,8 @@ Check out the latest code
 ```git clone https://github.com/d3sm0/gym_pomdp.git```
 
 To use it as a package simply run:
-```python setup.py install```
+```cd gym_pomdp```
+```pip install -e .```
 
 ## Usage
 Import the library and gym as and call the environment:
@@ -30,6 +31,7 @@ in the specific environment.
 - BattleShip
 - Network
 - RockSample
+- Pocman
 
 ## Recommended readings
 [General overview](http://cs.mcgill.ca/~jpineau/talks/jpineau-dagstuhl13.pdf)
@@ -42,5 +44,5 @@ David Silver and Joel Veness made this possible by releasing the code POMCP open
 And [@manuel](https://github.com/manuel-delverme) for proof test.
 
 ## TODO
-- Add pocman environment [WIP]
-
+- improve rendering of Pocman
+- Double check Pocman obervations with original
