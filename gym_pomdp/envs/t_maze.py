@@ -69,7 +69,7 @@ class TMazeEnv(gym.Env):
         self.pos = 0
         self.done = False
         obs = [self.dir, 1, 1 - self.dir]
-        return obs, 0, self.done, {"state": self.pos}
+        return obs
 
     def render(self, mode='human', close=False):
         if close:

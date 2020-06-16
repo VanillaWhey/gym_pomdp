@@ -37,8 +37,8 @@ MINI = dict(
                    dtype=np.int8).transpose(),
     _num_ghosts=3,
     _ghost_range=4,  # 4, 6
-    _ghost_home=(4, 2),  # 4,2  8,6
-    _poc_home=(5, 8),  # 5, 8,10
+    _ghost_home=(4, 4),  # 4,2  8,6
+    _poc_home=(4, 2),  # 5, 8,10
     _passage_y=5,  # 5, 10
 )
 NORMAL = dict(
