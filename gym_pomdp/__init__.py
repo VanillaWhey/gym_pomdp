@@ -71,6 +71,12 @@ register(
     entry_point="gym_pomdp.envs:RockEnv"
 )
 register(
+    id="RockSample-v3",
+    # max_episode_steps = 400,
+    kwargs={"board_size": 2, "num_rocks": 2},
+    entry_point="gym_pomdp.envs:RockEnv"
+)
+register(
     id="StochasticRock-v0",
     # max_episode_steps = 400,
     entry_point="gym_pomdp.envs:StochasticRockEvn"
