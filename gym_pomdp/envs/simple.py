@@ -3,19 +3,17 @@ from gym.core import Env
 
 
 class TestEnv(Env):
+
     def __init__(self, action_size=5, observation_size=5, max_depth=20):
         self.action_space = Discrete(action_size)
         self.observation_space = Discrete(observation_size)
         self.max_depth = max_depth
         self._discount = .95
         self._reward_range = 1
+        self.state = 0
 
     def reset(self):
         self.state = 0
-
-    def _get_init_state(self):
-        # self.state = 0
-        return 0  # self.state
 
     def _set_state(self, state):
         self.state = state
@@ -45,3 +43,6 @@ class TestEnv(Env):
             total_rw += discount / self.action_space.n
             discount *= self._discount
         return total_rw
+
+    def render(self, mode='human'):
+        pass

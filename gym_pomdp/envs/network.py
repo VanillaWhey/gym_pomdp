@@ -24,7 +24,7 @@ def print_action(action, n_machines):
 class NetworkEnv(Env):
     metadata = {"render.modes": ["ansi"]}
 
-    def __init__(self, n_machines=10, problem_type=3, depth=60):
+    def __init__(self, n_machines=10, problem_type=3):
         self._p = 0.1  # failure prob
         self._q = 0.33  # 33
         self._query = 0
@@ -34,8 +34,18 @@ class NetworkEnv(Env):
         self.observation_space = Discrete(len(Obs))
         self._discount = .95
         self._reward_range = n_machines * 2
-        self.neighbours = self.make_3legs_neighbours(
-            self._n_machines) if problem_type == 3 else self.make_ring_neighbours(n_machines)
+
+        if problem_type == 3:
+            self.neighbours = self.make_3legs_neighbours(self._n_machines)
+        else:
+            self.neighbours = self.make_ring_neighbours(n_machines)
+
+        self.done = False
+        self.t = 0
+        self._query = 0
+        self.last_action = None
+        self.state = None
+        self._server = 0
 
     def seed(self, seed=None):
         np.random.seed(seed)
@@ -68,10 +78,10 @@ class NetworkEnv(Env):
         self._server = 0
         return Obs.OFF.value
 
-    def step(self, action):
+    def step(self, action: int):
 
         assert self.action_space.contains(action)
-        assert self.done == False
+        assert self.done is False
         reward = 0
         self._query += 1
         ob = Obs.NULL.value
@@ -116,8 +126,8 @@ class NetworkEnv(Env):
     def render(self, mode="ansi", close=False):
         if close:
             return
-        print("N: {}, S: {}".format(self.state.sum(), self._server), print_action(self.last_action, self._n_machines),
-              sep='\t')
+        print("N: {}, S: {}".format(self.state.sum(), self._server),
+              print_action(self.last_action, self._n_machines), sep='\t')
 
     def _set_state(self, state):
         self.done = False
@@ -128,14 +138,8 @@ class NetworkEnv(Env):
 
     def _generate_legal(self):
         return list(range(self.action_space.n))
-        # actions = [self.action_space.n - 1]
-        # for action in range(self.action_space.n - 1):
-        #     machine, _ = divmod(action, 2)
-        #     if self.state[machine] == 0:
-        #         actions.append(action)
-        # return actions
 
-    def _generate_preferred(self, history):
+    def _generate_preferred(self):
         return self._generate_legal()
 
     def sample_action(self):
@@ -143,7 +147,7 @@ class NetworkEnv(Env):
 
     @staticmethod
     def make_ring_neighbours(n_machines):
-        neighbours = [[] for idx in range(n_machines)]
+        neighbours = [[] for _ in range(n_machines)]
         for idx in range(n_machines):
             neighbours[idx].append((idx + 1) % n_machines)
             neighbours[idx].append((idx + n_machines - 1) % n_machines)
@@ -152,7 +156,7 @@ class NetworkEnv(Env):
     @staticmethod
     def make_3legs_neighbours(n_machines):
         assert n_machines >= 4 and n_machines % 3 == 1
-        neighbours = [[] for idx in range(n_machines)]
+        neighbours = [[] for _ in range(n_machines)]
         neighbours[0].append(1)
         neighbours[0].append(2)
         neighbours[0].append(3)
@@ -172,17 +176,15 @@ if __name__ == "__main__":
 
     env = NetworkEnv(n_machines=19, problem_type=3)
     eps = []
-    seed = 0
-    for idx in range(500):
+    for _ in range(500):
         env.reset()
         env.seed(0)
         r = 0
         discount = 1
-        for idx in range(60):
-            action = 16 * 2  # np.random.choice(env._generate_legal())
+        for _ in range(60):
+            a = 16 * 2  # np.random.choice(env._generate_legal())
             # action = env.action_space.sample()
-            ob, rw, done, info = env.step(action)
-            p_ob = env._compute_prob(action, info['state'], ob)
+            obs, rw, done, info = env.step(a)
             # env.render(mode="ansi")
             # r+= rw
             r += discount * rw

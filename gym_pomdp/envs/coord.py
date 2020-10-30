@@ -3,6 +3,8 @@ from enum import Enum
 
 import numpy as np
 
+from unittest import TestCase
+
 
 class Coord(namedtuple("Coord", ["x", "y"])):
     __slots__ = ()
@@ -32,7 +34,9 @@ class Grid(object):
         self.x_size = x_size
         self.y_size = y_size
         self.n_tiles = self.x_size * self.y_size
+        self.board = []
         self.build_board()
+
     def __iter__(self):
         return iter(self.board)
 
@@ -50,16 +54,13 @@ class Grid(object):
 
     def build_board(self, value=1):
         self.board = np.zeros(self.get_size, dtype=np.int8) - value
-        # self.board = []
-        # for idx in range(self.n_tiles):
-        #     self.board.append(value)
-        # self.board = np.asarray(self.board)
 
     def get_index(self, coord):
         return self.x_size * coord.y + coord.x
 
     def is_inside(self, coord):
-        return coord.is_valid() and coord.x < self.x_size and coord.y < self.y_size
+        return coord.is_valid() and coord.x < self.x_size and\
+               coord.y < self.y_size
 
     def get_coord(self, idx):
         assert 0 <= idx < self.n_tiles
@@ -86,13 +87,13 @@ class Grid(object):
 
     @staticmethod
     def directional_distance(c1, c2, d):
-        if d == 0: # up
+        if d == 0:  # up
             return c2.y - c1.y
-        elif d == 1: # right
+        elif d == 1:  # right
             return c2.x - c1.x
-        elif d == 2: # down
+        elif d == 2:  # down
             return c1.y - c2.x
-        elif d == 3: # left
+        elif d == 3:  # left
             return c1.x - c2.x
         else:
             raise NotImplementedError()
@@ -112,9 +113,6 @@ class Moves(Enum):
     @staticmethod
     def sample():
         return np.random.randint(len(Moves))
-
-
-from unittest import TestCase
 
 
 class TestCoord(TestCase):

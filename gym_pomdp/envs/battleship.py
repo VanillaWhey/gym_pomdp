@@ -52,6 +52,7 @@ class Cell(object):
 
 class BattleGrid(Grid):
     def __init__(self, board_size):
+        self.board = []
         super().__init__(*board_size)
 
     def build_board(self, value=0):
@@ -64,7 +65,7 @@ class BattleGrid(Grid):
 class BattleShipEnv(Env):
     metadata = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self, board_size=(10, 10), ships=[5, 4, 3, 2, 2]):
+    def __init__(self, board_size=(5, 5), ships=(3, 2)):
         self.grid = BattleGrid(board_size)
         self.action_space = Discrete(self.grid.n_tiles)
         self.observation_space = Discrete(len(Obs))
@@ -74,10 +75,18 @@ class BattleShipEnv(Env):
         self.total_remaining = len(ships)
         self.ships = np.sort(ships)[::-1]
 
+        self.gui = None
+
+        self.done = False
+        self.tot_rw = 0
+        self.t = 0
+        self.last_action = -1
+        self.state = None
+
     def seed(self, seed=None):
         np.random.seed(seed)
 
-    def _compute_prob(self, action, next_state, ob):
+    def _compute_prob(self, action, ob):
 
         action_pos = self.grid.get_coord(action)
         cell = self.grid[action_pos]
@@ -101,25 +110,26 @@ class BattleShipEnv(Env):
         reward = 0
         if cell.visited:
             reward -= 10
-            obs = Obs.NULL.value
+            ob = Obs.NULL.value
         else:
             if cell.occupied:
                 reward -= 1
-                obs = 1
+                ob = 1
                 self.state.total_remaining -= 1
 
                 for d in range(4, 8):
-                    if self.grid[action_pos + Compass.get_coord(d)]:
-                        self.grid[action_pos + Compass.get_coord(d)].diagonal = False
+                    coord = action_pos + Compass.get_coord(d)
+                    if self.grid[coord]:
+                        self.grid[coord].diagonal = False
             else:
                 reward -= 1
-                obs = Obs.NULL.value
+                ob = Obs.NULL.value
             cell.visited = True
         if self.state.total_remaining == 0:
             reward += self.grid.n_tiles
             self.done = True
         self.tot_rw += reward
-        return obs, reward, self.done, {"state": self.state}
+        return ob, reward, self.done, {"state": self.state}
 
     def _set_state(self, state):
         self.reset()
@@ -140,7 +150,7 @@ class BattleShipEnv(Env):
         if close:
             return
         if mode == 'human':
-            if not hasattr(self, "gui"):
+            if self.gui is None:
                 obj_pos = []
                 for ship in self.state.ships:
                     pos = ship.pos
@@ -148,10 +158,11 @@ class BattleShipEnv(Env):
                     for i in range(ship.length - 1):
                         pos += Compass.get_coord(ship.direction)
                         obj_pos.append(self.grid.get_index(pos))
-                self.gui = ShipGui(board_size=self.grid.get_size, obj_pos=obj_pos)
+                self.gui = ShipGui(board_size=self.grid.get_size,
+                                   obj_pos=obj_pos)
             if self.t > 0:
-                msg = "A: " + str(self.grid.get_coord(self.last_action)) + "T: " + str(self.t) + "Rw :" + str(
-                    self.tot_rw)
+                msg = "A: " + str(self.grid.get_coord(self.last_action)) +\
+                      "T: " + str(self.t) + "Rw :" + str(self.tot_rw)
                 self.gui.render(state=self.last_action, msg=msg)
 
     def _generate_legal(self):
@@ -165,17 +176,17 @@ class BattleShipEnv(Env):
         return actions
 
     def _get_init_state(self):
-        bsstate = ShipState()
+        ship_state = ShipState()
         self.grid.build_board()
 
         for length in self.ships:
             while True:  # add one ship of each kind
                 ship = Ship(coord=self.grid.sample(), length=length)
-                if not self.collision(ship, self.grid, bsstate):
+                if not self.collision(ship, self.grid):
                     break
-            self.mark_ship(ship, self.grid, bsstate)
-            bsstate.ships.append(ship)
-        return bsstate
+            self.mark_ship(ship, self.grid, ship_state)
+            ship_state.ships.append(ship)
+        return ship_state
 
     @staticmethod
     def mark_ship(ship, grid, state):
@@ -191,7 +202,7 @@ class BattleShipEnv(Env):
             pos += Compass.get_coord(ship.direction)
 
     @staticmethod
-    def collision(ship, grid, state):
+    def collision(ship, grid):
 
         pos = ship.pos  # .copy()
         for i in range(ship.length):
@@ -211,15 +222,15 @@ class BattleShipEnv(Env):
 
 if __name__ == "__main__":
     env = BattleShipEnv()
-    ob = env.reset()
+    obs = env.reset()
     env.render()
     done = False
     t = 0
     while not done:
-        action = env.action_space.sample()
-        ob, rw, done, info = env.step(action)
+        a = env.action_space.sample()
+        obs, rw, done, info = env.step(a)
         env.render()
         t += 1
     env.close()
 
-    print("rw {}, t{}".format(rw, t))
+    print("rw {}, t{}".format('rw', t))

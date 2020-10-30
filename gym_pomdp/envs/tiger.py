@@ -57,6 +57,14 @@ class TigerEnv(gym.Env):
         self._query = 0
         self.seed(seed)
 
+        self.done = False
+        self.t = 0
+        self._query = 0
+        self.state = None
+        self.last_action = None
+
+        self.gui = None
+
     def reset(self):
         self.done = False
         self.t = 0
@@ -91,18 +99,19 @@ class TigerEnv(gym.Env):
         if close:
             return
         if mode == "human":
-            if not hasattr(self, "gui"):
+            if self.gui is None:
                 self.gui = TigerGui()
-            msg = "A: " + action_to_str(self.last_action) + " S: " + state_to_str(self.state)
+            msg = "A: " + action_to_str(self.last_action) +\
+                  " S: " + state_to_str(self.state)
             self.gui.render(state=(self.last_action, self.state), msg=msg)
         elif mode == "ansi":
-            print("Current step: {}, tiger is in state: {}, action took: {}".format(self.t, self.state,
-                                                                                    self.last_action[0]))
+            print("Current step: {}, tiger is in state: {}, action took: {}"
+                  .format(self.t, self.state, self.last_action[0]))
         else:
             raise NotImplementedError()
 
     def close(self):
-        self._render(close=True)
+        self.render(close=True)
 
     def _set_state(self, state):
         self.state = state
@@ -111,7 +120,7 @@ class TigerEnv(gym.Env):
     def _generate_legal(self):
         return list(range(self.action_space.n))
 
-    def _generate_preferred(self, history):
+    def _generate_preferred(self):
         return self._generate_legal()
 
     def _sample_state(self, action):
@@ -134,7 +143,7 @@ class TigerEnv(gym.Env):
         elif action != Action.LISTEN.value and ob == Obs.NULL.value:
             p_ob = 1.
 
-        assert p_ob >= 0.0 and p_ob <= 1.0
+        assert 0.0 <= p_ob <= 1.0
         return p_ob
 
     @staticmethod
@@ -157,8 +166,8 @@ class TigerEnv(gym.Env):
         is_terminal = False
         if action != Action.LISTEN.value:
             is_terminal = (
-                    (action == Action.LEFT.value and state == State.LEFT.value) or (
-                    action == Action.RIGHT.value and state == State.RIGHT.value))
+                (action == Action.LEFT.value and state == State.LEFT.value) or
+                (action == Action.RIGHT.value and state == State.RIGHT.value))
         return is_terminal
 
     @staticmethod
@@ -181,8 +190,8 @@ if __name__ == '__main__':
 
     env.render()
     while not done:
-        action = env.action_space.sample()
-        ob1, r, done, info = env.step(action)
+        a = env.action_space.sample()
+        obs, r, done, info = env.step(a)
         env.render()
 
         rws += r

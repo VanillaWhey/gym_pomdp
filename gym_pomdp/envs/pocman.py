@@ -87,6 +87,11 @@ def set_flags(flags, bit):
     return flags | 1 << bit
 
 
+def set_flags_array(flags, bit):
+    flags[bit] = 1
+    return flags
+
+
 def can_move(ghost, d):
 
     return Grid.opposite(d) != ghost.direction
@@ -145,7 +150,7 @@ def select_maze(maze):
 
 
 class PocEnv(Env):
-    def __init__(self, maze):
+    def __init__(self, maze, obs_array=False):
         self.board = select_maze(maze)
         self.grid = PocGrid(board=self.board["_maze"])
         self._get_init_state()
@@ -155,6 +160,15 @@ class PocEnv(Env):
         self._reward_range = 100
         self._discount = .95
         self.done = False
+
+        self.gui = None
+
+        if obs_array:
+            self._set_flags = set_flags_array
+            self._zero = lambda: [0] * 10
+        else:
+            self._set_flags = set_flags
+            self._zero = lambda: 0
 
     def seed(self, seed=None):
         np.random.seed(seed)
@@ -234,17 +248,17 @@ class PocEnv(Env):
         return obs, reward, self.done, {"state": self.state}
 
     def _make_ob(self):
-        obs = 0
+        obs = self._zero()
         for d in range(self.action_space.n):
             if self._see_ghost(d) >= 0:
-                obs = set_flags(obs, d)
+                obs = self._set_flags(obs, d)
             next_pos = self._next_pos(self.state.agent_pos, direction=d)
             if next_pos.is_valid() and self.is_passable(next_pos):
-                obs = set_flags(obs, d + self.action_space.n)
+                obs = self._set_flags(obs, d + self.action_space.n)
         if self._smell_food():
-            obs = set_flags(obs, 8)
+            obs = self._set_flags(obs, 8)
         if self._hear_ghost(self.state):
-            obs = set_flags(obs, 9)
+            obs = self._set_flags(obs, 9)
         return obs
 
     def _encode_state(self, state):
@@ -265,9 +279,6 @@ class PocEnv(Env):
         poc_state.food_pos = state[self.board["_num_ghosts"] * 3: -1].tolist()
         return poc_state
 
-    def _compute_prob(self, action, next_state, ob):
-        return int(ob == self._make_ob())
-
     def _see_ghost(self, action):
         eye_pos = self.state.agent_pos + Moves.get_coord(action)
         while True:
@@ -284,14 +295,16 @@ class PocEnv(Env):
             for y in range(-smell_range, smell_range + 1):
                 smell_pos = Coord(x, y)
                 idx = self.grid.get_index(self.state.agent_pos + smell_pos)
-                if self.grid.is_inside(self.state.agent_pos + smell_pos) and self.state.food_pos[idx]:
+                if self.grid.is_inside(self.state.agent_pos + smell_pos) and\
+                        self.state.food_pos[idx]:
                     return True
         return False
 
     @staticmethod
     def _hear_ghost(poc_state, hear_range=2):
         for ghost in poc_state.ghosts:
-            if Grid.manhattan_distance(ghost.pos, poc_state.agent_pos) <= hear_range:
+            if Grid.manhattan_distance(ghost.pos,
+                                       poc_state.agent_pos) <= hear_range:
                 return True
         return False
 
@@ -299,7 +312,7 @@ class PocEnv(Env):
         if close:
             return
         if mode == 'human':
-            if not hasattr(self, "gui"):
+            if self.gui is None:
                 self.gui = PocGui(board_size=self.grid.get_size,
                                   maze=self.board["_maze"], state=self.state)
             else:
@@ -333,9 +346,11 @@ class PocEnv(Env):
 
     def _next_pos(self, pos, direction):
         direction = Moves.get_coord(direction)
-        if pos.x == 0 and pos.y == self.board['_passage_y'] and direction == Moves.EAST:
+        if pos.x == 0 and pos.y == self.board['_passage_y'] and\
+                direction == Moves.EAST:
             next_pos = Coord(self.grid.x_size - 1, pos.y)
-        elif pos.x == self.grid.x_size - 1 and pos.y == self.board['_passage_y'] and direction == Moves.WEST:
+        elif pos.x == self.grid.x_size - 1 and\
+                pos.y == self.board['_passage_y'] and direction == Moves.WEST:
             next_pos = Coord(0, pos.y)
         else:
             next_pos = pos + direction
@@ -346,7 +361,8 @@ class PocEnv(Env):
             return Coord(-1, -1)
 
     def _move_ghost(self, g, ghost_range):
-        if Grid.manhattan_distance(self.state.agent_pos, self.state.ghosts[g].pos) < ghost_range:
+        if Grid.manhattan_distance(self.state.agent_pos,
+                                   self.state.ghosts[g].pos) < ghost_range:
             if self.state.power_step > 0:
                 self._move_defensive(g)
             else:
@@ -362,9 +378,12 @@ class PocEnv(Env):
         best_pos = self.state.ghosts[g].pos
         best_dir = -1
         for d in range(self.action_space.n):
-            dist = Grid.directional_distance(self.state.agent_pos, self.state.ghosts[g].pos, d)
+            dist = Grid.directional_distance(self.state.agent_pos,
+                                             self.state.ghosts[g].pos, d)
+
             new_pos = self._next_pos(self.state.ghosts[g].pos, d)
-            if dist <= best_dist and new_pos.is_valid() and can_move(self.state.ghosts[g], d):
+            if dist <= best_dist and new_pos.is_valid() and\
+                    can_move(self.state.ghosts[g], d):
                 best_pos = new_pos
                 best_dist = dist
                 best_dir = d
@@ -372,7 +391,8 @@ class PocEnv(Env):
         self.state.ghosts[g].update(best_pos, best_dir)
 
     def _move_defensive(self, g, defensive_prob=.5):
-        if np.random.binomial(1, defensive_prob) and self.state.ghosts[g].direction >= 0:
+        if np.random.binomial(1, defensive_prob) and\
+                self.state.ghosts[g].direction >= 0:
             self.state.ghosts[g].direction = -1
             return
 
@@ -380,9 +400,12 @@ class PocEnv(Env):
         best_pos = self.state.ghosts[g].pos
         best_dir = -1
         for d in range(self.action_space.n):
-            dist = Grid.directional_distance(self.state.agent_pos, self.state.ghosts[g].pos, d)
+            dist = Grid.directional_distance(self.state.agent_pos,
+                                             self.state.ghosts[g].pos, d)
+
             new_pos = self._next_pos(self.state.ghosts[g].pos, d)
-            if dist >= best_dist and new_pos.is_valid() and can_move(self.state.ghosts[g], d):
+            if dist >= best_dist and new_pos.is_valid() and\
+                    can_move(self.state.ghosts[g], d):
                 best_pos = new_pos
                 best_dist = dist
                 best_dir = d
@@ -398,7 +421,8 @@ class PocEnv(Env):
             d = self.action_space.sample()
             next_pos = self._next_pos(ghost_pos, d)
             # normal map has dead ends:
-            if next_pos.is_valid() and (can_move(self.state.ghosts[g], d) or i > 10):
+            if next_pos.is_valid() and (can_move(self.state.ghosts[g], d) or
+                                        i > 10):
                 break
             i += 1
 

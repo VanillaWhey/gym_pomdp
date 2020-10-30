@@ -1,9 +1,7 @@
 import numpy as np
 import gym
 
-from enum import IntEnum
-
-from gym_pomdp.envs.coord import Grid
+from gym.utils import seeding
 from gym_pomdp.envs.gui import TMazeGui
 
 
@@ -22,13 +20,15 @@ class TMazeEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Discrete(3)
 
+        self.gui = None
+
         self.dir = 0
         self.pos = 0
         self.obs = []
 
         self.done = False
 
-    def step(self, action):
+    def step(self, action: int):
         assert self.action_space.contains(action)
         assert self.done is False
 
@@ -36,7 +36,9 @@ class TMazeEnv(gym.Env):
         self.obs = [1, 0, 1]  # corridor
 
         # check for standing still
-        if self.pos == 0 and action == LEFT or self.pos == self.length and action == RIGHT or self.pos < self.length and action < RIGHT:
+        if self.pos == 0 and action == LEFT or\
+           self.pos == self.length and action == RIGHT or\
+           self.pos < self.length and action < RIGHT:
             reward = -0.1
         elif action == RIGHT:
             self.pos += 1
@@ -62,21 +64,22 @@ class TMazeEnv(gym.Env):
             elif self.pos == self.length:
                 self.obs = [0, 1, 0]  # T-junction
 
-        return self.obs, reward, self.done, {"state": self.pos}
+        return np.array(self.obs), reward, self.done, {"state": self.pos}
 
     def reset(self):
         self.dir = np.random.randint(0, 2)
         self.pos = 0
         self.done = False
-        obs = [self.dir, 1, 1 - self.dir]
+        obs = np.array([self.dir, 1, 1 - self.dir])
         return obs
 
     def render(self, mode='human', close=False):
         if close:
             return
         if mode == 'human':
-            if not hasattr(self, "gui"):
-                self.gui = TMazeGui(board_size=(self.length + 1, 3), state=self.pos, goal=2 * self.dir - 1)
+            if self.gui is None:
+                self.gui = TMazeGui(board_size=(self.length + 1, 3),
+                                    state=self.pos, goal=2 * self.dir - 1)
             else:
                 self.gui.render(state=self.pos, msg=str(self.obs))
 
