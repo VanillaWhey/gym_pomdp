@@ -11,8 +11,10 @@ Check out the latest code
 ```git clone https://github.com/VanillaWhey/gym_pomdp.git```
 
 To use it as a package simply run:
-```cd gym_pomdp```
-```pip install -e .```
+```bash
+cd gym_pomdp
+pip install -e .
+```
 
 ## Usage
 Import the library and gym as and call the environment:
