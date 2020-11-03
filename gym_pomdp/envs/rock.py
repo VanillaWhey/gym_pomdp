@@ -2,7 +2,7 @@ from enum import Enum
 
 import numpy as np
 from gym import Env
-from gym.spaces import Discrete
+from gym.spaces import Discrete, Box
 
 from gym_pomdp.envs.coord import Coord, Grid, Moves
 from gym_pomdp.envs.gui import RockGui
@@ -123,7 +123,6 @@ class RockEnv(Env):
             self.grid.board[rock] = idx
 
         self.action_space = Discrete(len(Action) + self.num_rocks)
-        self.observation_space = Discrete(len(Obs))
         self._discount = .95
         self._reward_range = 20
         self._penalization = -100
@@ -138,16 +137,32 @@ class RockEnv(Env):
         assert observation in ['o', 'oa', 'po', 'poa']
         if observation == 'o':
             self._make_obs = lambda obs, a: obs
+            self.observation_space = Discrete(len(Obs))
         elif observation == 'oa':
             self._make_obs = lambda obs, a: [obs, a]
+            self.observation_space =\
+                Box(low=0,
+                    high=np.array([len(Obs), self.action_space.n]),
+                    dtype=np.int)
+
         elif observation == 'po':
             self._make_obs = lambda obs, a: [self.state.agent_pos.x,
                                              self.state.agent_pos.y,
                                              obs]
+            self.observation_space = \
+                Box(low=0,
+                    high=np.array([board_size, board_size, len(Obs)]),
+                    dtype=np.int)
+
         elif observation == 'poa':
             self._make_obs = lambda obs, a: [self.state.agent_pos.x,
                                              self.state.agent_pos.y,
                                              obs, a]
+            self.observation_space = \
+                Box(low=0,
+                    high=np.array([board_size, board_size, len(Obs),
+                                   self.action_space.n]),
+                    dtype=np.int)
 
     def seed(self, seed=None):
         np.random.seed(seed)
