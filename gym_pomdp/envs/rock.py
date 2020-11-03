@@ -238,10 +238,10 @@ class RockEnv(Env):
                 self.state.rocks[rock].lkw *= eff
                 self.state.rocks[rock].lkv *= (1 - eff)
 
-            denominator = (.5 * self.state.rocks[rock].lkv) + (
-                    .5 * self.state.rocks[rock].lkw)
-            self.state.rocks[rock].prob_valuable = (.5 * self.state.rocks[
-                rock].lkv) / denominator
+                denominator = (.5 * self.state.rocks[rock].lkv) + (
+                        .5 * self.state.rocks[rock].lkw) + 1e-10
+                self.state.rocks[rock].prob_valuable = \
+                    (.5 * self.state.rocks[rock].lkv) / denominator
 
         self.done = self._penalization == reward
         ob = self._make_obs(ob, action)
@@ -296,7 +296,7 @@ class RockEnv(Env):
         self._query = 0
         self.last_action = Action.SAMPLE.value
         self.state = self._get_init_state(should_encode=False)
-        return Obs.NULL.value
+        return self._make_obs(Obs.NULL.value, self.last_action)
 
     def _set_state(self, state):
         self.done = False
