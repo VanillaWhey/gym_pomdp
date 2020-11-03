@@ -135,10 +135,11 @@ class RockEnv(Env):
 
         self.gui = None
 
-        assert observation in ['o', 'po', 'poa']
+        assert observation in ['o', 'oa', 'po', 'poa']
         if observation == 'o':
             self._make_obs = lambda obs, a: obs
-
+        elif observation == 'oa':
+            self._make_obs = lambda obs, a: [obs, a]
         elif observation == 'po':
             self._make_obs = lambda obs, a: [self.state.agent_pos.x,
                                              self.state.agent_pos.y,
