@@ -146,21 +146,18 @@ class RockEnv(Env):
                     dtype=np.int)
 
         elif observation == 'po':
-            self._make_obs = lambda obs, a: [self.state.agent_pos.x,
-                                             self.state.agent_pos.y,
-                                             obs]
+            self._make_obs = lambda obs, a: np.append(self._pos_one_hot(), obs)
             self.observation_space = \
                 Box(low=0,
-                    high=np.array([board_size, board_size, len(Obs)]),
+                    high=np.append(np.ones(self.grid.n_tiles), len(Obs)),
                     dtype=np.int)
 
         elif observation == 'poa':
-            self._make_obs = lambda obs, a: [self.state.agent_pos.x,
-                                             self.state.agent_pos.y,
-                                             obs, a]
+            self._make_obs = lambda obs, a:\
+                np.append(self._pos_one_hot(), [obs, a])
             self.observation_space = \
                 Box(low=0,
-                    high=np.array([board_size, board_size, len(Obs),
+                    high=np.append(np.ones(self.grid.n_tiles), [len(Obs),
                                    self.action_space.n]),
                     dtype=np.int)
 
@@ -487,6 +484,12 @@ class RockEnv(Env):
     #         elif last_ob == Obs.BAD.value and new_ob == Obs.GOOD.value:
     #             state.rocks[rock].count -= 2
     #     return True
+
+    def _pos_one_hot(self):
+        pos = np.zeros(self.grid.n_tiles)
+        pos[self.grid.x_size * self.state.agent_pos.y +
+            self.state.agent_pos.x] = 1.
+        return pos
 
 
 # remove illegal termination
