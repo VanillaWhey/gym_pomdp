@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import IntEnum, unique
 
 import numpy as np
 from gym import Env
@@ -8,32 +8,34 @@ from gym_pomdp.envs.coord import Coord, Grid, Moves
 from gym_pomdp.envs.gui import RockGui
 
 
-class Obs(Enum):
+@unique
+class Obs(IntEnum):
     NULL = 0
     GOOD = 2
     BAD = 1
 
 
-class Action(Enum):
+@unique
+class Action(IntEnum):
     NORTH = 0
-    EAST = 1  # east
+    EAST = 1
     SOUTH = 2
-    WEST = 3  # west
+    WEST = 3
     SAMPLE = 4
 
 
 def action_to_str(action):
-    if action == 0:
+    if action == Action.NORTH:
         return "north"
-    elif action == 1:
+    elif action == Action.EAST:
         return "east"
-    elif action == 2:
+    elif action == Action.SOUTH:
         return "south"
-    elif action == 3:
+    elif action == Action.WEST:
         return "west"
-    elif action == 4:
+    elif action == Action.SAMPLE:
         return "sample"
-    elif action > 4:
+    elif action > Action.SAMPLE:
         return "check"
     else:
         raise NotImplementedError()
@@ -63,16 +65,6 @@ config = {
               [9, 1], [11, 8], [12, 2], [13, 10], [14, 9]]},
 }
 
-# each rock is a vector of [pos, good/bad]
-# the full state is x_size * y_size + n_rocks +
-# the full state is [agent_x, agent_y,
-
-
-# class RockGrid(Grid):
-#     def __init__(self, board_size):
-#         super().__init__(*board_size)
-#         self.build_board(value=-1)
-
 
 class Rock(object):
     def __init__(self, pos):
@@ -89,14 +81,13 @@ class RockState(object):
     def __init__(self, pos):
         self.agent_pos = pos
         self.rocks = []
-        self.target = -1  # Coord(-1,-1) # -1  # Coord(-1, -1)
 
 
 class RockEnv(Env):
     metadata = {"render.modes": ["human", "ansi"]}
 
     def __init__(self, board_size=7, num_rocks=8, use_heuristic=False,
-                 observation='o'):
+                 observation='o', stay_inside=False):
         """
 
         :param board_size: int board is a square of board_size x board_size
@@ -127,6 +118,10 @@ class RockEnv(Env):
         self._reward_range = 20
         self._penalization = -100
         self._query = 0
+        if stay_inside:
+            self._out_of_bounds_penalty = 0
+        else:
+            self._out_of_bounds_penalty = self._penalization
 
         self.state = None
         self.last_action = None
@@ -139,26 +134,26 @@ class RockEnv(Env):
             self._make_obs = lambda obs, a: obs
             self.observation_space = Discrete(len(Obs))
         elif observation == 'oa':
-            self._make_obs = lambda obs, a: [obs, a]
+            self._make_obs = self._oa
             self.observation_space =\
                 Box(low=0,
-                    high=np.array([len(Obs), self.action_space.n]),
+                    high=np.append(max(Obs), np.ones(self.action_space.n)),
                     dtype=np.int)
 
         elif observation == 'po':
-            self._make_obs = lambda obs, a: np.append(self._pos_one_hot(), obs)
+            self._make_obs = self._po
             self.observation_space = \
                 Box(low=0,
-                    high=np.append(np.ones(self.grid.n_tiles), len(Obs)),
+                    high=np.append(np.ones(self.grid.n_tiles), max(Obs)),
                     dtype=np.int)
 
         elif observation == 'poa':
-            self._make_obs = lambda obs, a:\
-                np.append(self._pos_one_hot(), [obs, a])
+            self._make_obs = self._poa
             self.observation_space = \
                 Box(low=0,
-                    high=np.append(np.ones(self.grid.n_tiles), [len(Obs),
-                                   self.action_space.n]),
+                    high=np.concatenate((np.ones(self.grid.n_tiles),
+                                         [max(Obs)],
+                                        np.ones(self.action_space.n))),
                     dtype=np.int)
 
     def seed(self, seed=None):
@@ -173,10 +168,10 @@ class RockEnv(Env):
         self._query += 1
 
         reward = 0
-        ob = Obs.NULL.value
+        ob = Obs.NULL
 
-        if action < Action.SAMPLE.value:
-            if action == Action.EAST.value:
+        if action < Action.SAMPLE:
+            if action == Action.EAST:
                 if self.state.agent_pos.x + 1 < self.grid.x_size:
                     self.state.agent_pos += Moves.EAST.value
                 else:
@@ -185,25 +180,25 @@ class RockEnv(Env):
                     ob = self._make_obs(ob, action)
                     return ob, reward, self.done, {
                         "state": self._encode_state(self.state)}
-            elif action == Action.NORTH.value:
+            elif action == Action.NORTH:
                 if self.state.agent_pos.y + 1 < self.grid.y_size:
                     self.state.agent_pos += Moves.NORTH.value
                 else:
-                    reward = self._penalization
-            elif action == Action.SOUTH.value:
+                    reward = self._out_of_bounds_penalty
+            elif action == Action.SOUTH:
                 if self.state.agent_pos.y - 1 >= 0:
                     self.state.agent_pos += Moves.SOUTH.value
                 else:
-                    reward = self._penalization
-            elif action == Action.WEST.value:
+                    reward = self._out_of_bounds_penalty
+            elif action == Action.WEST:
                 if self.state.agent_pos.x - 1 >= 0:
                     self.state.agent_pos += Moves.WEST.value
                 else:
-                    reward = self._penalization
+                    reward = self._out_of_bounds_penalty
             else:
                 raise NotImplementedError()
 
-        if action == Action.SAMPLE.value:
+        if action == Action.SAMPLE:
             rock = self.grid[self.state.agent_pos]
             if rock >= 0 and not self.state.rocks[
                                      rock].status == 0:  # collected
@@ -215,8 +210,8 @@ class RockEnv(Env):
             else:
                 reward = self._penalization
 
-        if action > Action.SAMPLE.value:
-            rock = action - Action.SAMPLE.value - 1
+        if action > Action.SAMPLE:
+            rock = action - Action.SAMPLE - 1
             assert rock < self.num_rocks
 
             ob = self._sample_ob(self.state.agent_pos, self.state.rocks[rock])
@@ -226,7 +221,7 @@ class RockEnv(Env):
             eff = self._efficiency(self.state.agent_pos,
                                    self.state.rocks[rock].pos)
 
-            if ob == Obs.GOOD.value:
+            if ob == Obs.GOOD:
                 self.state.rocks[rock].count += 1
                 self.state.rocks[rock].lkv *= eff
                 self.state.rocks[rock].lkw *= (1 - eff)
@@ -281,8 +276,8 @@ class RockEnv(Env):
                 self.gui = RockGui((self.grid.x_size, self.grid.y_size),
                                    start_pos=start_pos, obj=obj_pos)
 
-            if self.last_action > Action.SAMPLE.value:
-                rock = self.last_action - Action.SAMPLE.value - 1
+            if self.last_action > Action.SAMPLE:
+                rock = self.last_action - Action.SAMPLE - 1
                 msg = "Rock S: {} P:{}".format(self.state.rocks[rock].status,
                                                self.state.rocks[rock].pos)
             agent_pos = self.grid.get_index(self.state.agent_pos)
@@ -291,9 +286,9 @@ class RockEnv(Env):
     def reset(self):
         self.done = False
         self._query = 0
-        self.last_action = Action.SAMPLE.value
+        self.last_action = Action.SAMPLE
         self.state = self._get_init_state(should_encode=False)
-        return self._make_obs(Obs.NULL.value, self.last_action)
+        return self._make_obs(Obs.NULL, self.last_action)
 
     def _set_state(self, state):
         self.done = False
@@ -306,17 +301,17 @@ class RockEnv(Env):
 
         next_state = self._decode_state(next_state)
 
-        if action <= Action.SAMPLE.value:
-            return int(ob == Obs.NULL.value)
+        if action <= Action.SAMPLE:
+            return int(ob == Obs.NULL)
 
         eff = self._efficiency(next_state.agent_pos, next_state.rocks[
-            action - Action.SAMPLE.value - 1].pos)
+            action - Action.SAMPLE - 1].pos)
 
-        if ob == Obs.GOOD.value and next_state.rocks[
-           action - Action.SAMPLE.value - 1].status == 1:
+        if ob == Obs.GOOD and next_state.rocks[
+           action - Action.SAMPLE - 1].status == 1:
             return eff
-        elif ob == Obs.BAD.value and next_state.rocks[
-             action - Action.SAMPLE.value - 1].status == -1:
+        elif ob == Obs.BAD and next_state.rocks[
+             action - Action.SAMPLE - 1].status == -1:
             return eff
         else:
             return 1 - eff
@@ -329,23 +324,23 @@ class RockEnv(Env):
         return self._encode_state(rock_state) if should_encode else rock_state
 
     def _generate_legal(self):
-        legal = [Action.EAST.value]  # can always go east
+        legal = [Action.EAST]  # can always go east
         if self.state.agent_pos.y + 1 < self.grid.y_size:
-            legal.append(Action.NORTH.value)
+            legal.append(Action.NORTH)
 
         if self.state.agent_pos.y - 1 >= 0:
-            legal.append(Action.SOUTH.value)
+            legal.append(Action.SOUTH)
         if self.state.agent_pos.x - 1 >= 0:
-            legal.append(Action.WEST.value)
+            legal.append(Action.WEST)
 
         rock = self.grid[self.state.agent_pos]
         if rock >= 0 and self.state.rocks[rock].status != 0:
-            legal.append(Action.SAMPLE.value)
+            legal.append(Action.SAMPLE)
 
         for rock in self.state.rocks:
             assert self.grid[rock.pos] != -1
             if rock.status != 0:
-                legal.append(self.grid[rock.pos] + 1 + Action.SAMPLE.value)
+                legal.append(self.grid[rock.pos] + 1 + Action.SAMPLE)
         return legal
 
     def _generate_preferred(self, history):
@@ -360,13 +355,13 @@ class RockEnv(Env):
             total = 0
             # history
             for t in range(history.size):
-                if history[t].action == rock + 1 + Action.SAMPLE.value:
-                    if history[t].ob == Obs.GOOD.value:
+                if history[t].action == rock + 1 + Action.SAMPLE:
+                    if history[t].ob == Obs.GOOD:
                         total += 1
-                    elif history[t].ob == Obs.BAD.value:
+                    elif history[t].ob == Obs.BAD:
                         total -= 1
             if total > 0:
-                actions.append(Action.SAMPLE.value)
+                actions.append(Action.SAMPLE)
                 return actions
 
         # process the rocks
@@ -383,10 +378,10 @@ class RockEnv(Env):
             if rock.status != 0:
                 total = 0
                 for t in range(history.size):
-                    if history[t].action == idx + 1 + Action.SAMPLE.value:
-                        if history[t].ob == Obs.GOOD.value:
+                    if history[t].action == idx + 1 + Action.SAMPLE:
+                        if history[t].ob == Obs.GOOD:
                             total += 1
-                        elif history[t].ob == Obs.BAD.value:
+                        elif history[t].ob == Obs.BAD:
                             total -= 1
                 if total >= 0:
                     all_bad = False
@@ -401,7 +396,7 @@ class RockEnv(Env):
                         direction['east'] = True
 
         if all_bad:
-            actions.append(Action.EAST.value)
+            actions.append(Action.EAST)
             return actions
 
         # generate a random legal move
@@ -413,21 +408,21 @@ class RockEnv(Env):
 
         if self.state.agent_pos.y + 1 < self.grid.y_size and\
                 direction['north']:
-            actions.append(Action.NORTH.value)
+            actions.append(Action.NORTH)
 
         if direction['east']:
-            actions.append(Action.EAST.value)
+            actions.append(Action.EAST)
 
         if self.state.agent_pos.y - 1 >= 0 and direction['south']:
-            actions.append(Action.SOUTH.value)
+            actions.append(Action.SOUTH)
 
         if self.state.agent_pos.x - 1 >= 0 and direction['west']:
-            actions.append(Action.WEST.value)
+            actions.append(Action.WEST)
 
         for idx, rock in enumerate(self.state.rocks):
             if not rock.status == 0 and rock.measured < 5 and abs(
                     rock.count) < 2 and 0 < rock.prob_valuable < 1:
-                actions.append(idx + 1 + Action.SAMPLE.value)
+                actions.append(idx + 1 + Action.SAMPLE)
 
         if len(actions) == 0:
             return self._generate_legal()
@@ -464,32 +459,27 @@ class RockEnv(Env):
     def _sample_ob(agent_pos, rock, hed=20):
         eff = RockEnv._efficiency(agent_pos, rock.pos, hed=hed)
         if np.random.binomial(1, eff):
-            return Obs.GOOD.value if rock.status == 1 else Obs.BAD.value
+            return Obs.GOOD if rock.status == 1 else Obs.BAD
         else:
-            return Obs.BAD.value if rock.status == 1 else Obs.GOOD.value
+            return Obs.BAD if rock.status == 1 else Obs.GOOD
 
-    # @staticmethod
-    # def _local_move(state, last_action, last_ob):
-    #     rock = np.random.choice(state.rocks)
-    # TODO Not really sure what is going on here
-    #     rock.valuable = not rock.valuable
-    #
-    #     if last_action > Action.SAMPLE.value:  # check rock
-    #         rock = last_action - Action.SAMPLE.value - 1
-    #         new_ob = RockEnv._sample_ob(state.agent_pos, state.rocks[rock])
-    #         if new_ob != last_ob:
-    #             return False
-    #         if last_ob == Obs.GOOD.value and new_ob == Obs.BAD.value:
-    #             state.rocks[rock].count += 2
-    #         elif last_ob == Obs.BAD.value and new_ob == Obs.GOOD.value:
-    #             state.rocks[rock].count -= 2
-    #     return True
-
-    def _pos_one_hot(self):
-        pos = np.zeros(self.grid.n_tiles)
-        pos[self.grid.x_size * self.state.agent_pos.y +
+    def _po(self, o, _):
+        obs = np.zeros(self.observation_space.shape[0])
+        obs[self.grid.x_size * self.state.agent_pos.y +
             self.state.agent_pos.x] = 1.
-        return pos
+        obs[self.grid.n_tiles] = o
+        return obs
+
+    def _poa(self, o, a):
+        obs = self._po(o, a)
+        obs[self.grid.n_tiles + a] = 1.
+        return obs
+
+    def _oa(self, o, a):
+        obs = np.zeros(self.observation_space.shape[0])
+        obs[0] = o
+        obs[1 + a] = 1.
+        return obs
 
 
 # remove illegal termination
@@ -511,10 +501,10 @@ class StochasticRockEnv(RockEnv):
         self._query += 1
 
         reward = 0
-        ob = Obs.NULL.value
+        ob = Obs.NULL
         if np.random.binomial(1, p=self.p_move):
-            if action < Action.SAMPLE.value:
-                if action == Action.EAST.value:
+            if action < Action.SAMPLE:
+                if action == Action.EAST:
                     if self.state.agent_pos.x + 1 < self.grid.x_size:
                         self.state.agent_pos += Moves.EAST.value
                     else:
@@ -522,17 +512,17 @@ class StochasticRockEnv(RockEnv):
                         self.done = True
                         info = {"state": self._encode_state(self.state)}
                         return ob, reward, self.done, info
-                elif action == Action.NORTH.value:
+                elif action == Action.NORTH:
                     if self.state.agent_pos.y + 1 < self.grid.y_size:
                         self.state.agent_pos += Moves.NORTH.value
                     else:
                         reward = self._penalization
-                elif action == Action.SOUTH.value:
+                elif action == Action.SOUTH:
                     if self.state.agent_pos.y - 1 >= 0:
                         self.state.agent_pos += Moves.SOUTH.value
                     else:
                         reward = self._penalization
-                elif action == Action.WEST.value:
+                elif action == Action.WEST:
                     if self.state.agent_pos.x - 1 >= 0:
                         self.state.agent_pos += Moves.WEST.value
                     else:
@@ -540,7 +530,7 @@ class StochasticRockEnv(RockEnv):
                 else:
                     raise NotImplementedError()
 
-            if action == Action.SAMPLE.value:
+            if action == Action.SAMPLE:
                 rock = self.grid[self.state.agent_pos]
                 # collected
                 if rock >= 0 and not self.state.rocks[rock].status == 0:
@@ -552,8 +542,8 @@ class StochasticRockEnv(RockEnv):
                 else:
                     reward = self._penalization
 
-            if action > Action.SAMPLE.value:
-                rock = action - Action.SAMPLE.value - 1
+            if action > Action.SAMPLE:
+                rock = action - Action.SAMPLE - 1
                 assert rock < self.num_rocks
 
                 ob = self._sample_ob(self.state.agent_pos,
@@ -564,7 +554,7 @@ class StochasticRockEnv(RockEnv):
                 eff = self._efficiency(self.state.agent_pos,
                                        self.state.rocks[rock].pos)
 
-                if ob == Obs.GOOD.value:
+                if ob == Obs.GOOD:
                     self.state.rocks[rock].count += 1
                     self.state.rocks[rock].lkv *= eff
                     self.state.rocks[rock].lkw *= (1 - eff)
@@ -578,7 +568,7 @@ class StochasticRockEnv(RockEnv):
                 self.state.rocks[rock].prob_valuable = \
                     (.5 * self.state.rocks[rock].lkv) / denominator
 
-        # self.done = self._penalization == reward
+        self.done = self._penalization == reward
         return ob, reward, self.done, {"state": self._encode_state(self.state)}
 
 
