@@ -18,7 +18,8 @@ class TMazeEnv(gym.Env):
         self.length = length - 1
 
         self.action_space = gym.spaces.Discrete(4)
-        self.observation_space = gym.spaces.Discrete(3)
+        self.observation_space = gym.spaces.Box(low=0, high=np.ones(3),
+                                                dtype=np.int)
 
         self.gui = None
 
