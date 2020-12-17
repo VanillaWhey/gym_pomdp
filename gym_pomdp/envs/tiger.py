@@ -78,9 +78,10 @@ class TigerEnv(gym.Env):
         return [seed]
 
     def step(self, action):
-
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
+
         self.t += 1
         self._query += 1
         self.last_action = action

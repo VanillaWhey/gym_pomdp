@@ -200,7 +200,8 @@ class PocEnv(Env):
         return actions
 
     def step(self, action):
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
 
         self.state.action = action

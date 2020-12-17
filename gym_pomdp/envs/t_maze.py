@@ -30,7 +30,8 @@ class TMazeEnv(gym.Env):
         self.done = False
 
     def step(self, action: int):
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
 
         reward = 0

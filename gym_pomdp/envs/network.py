@@ -79,9 +79,10 @@ class NetworkEnv(Env):
         return Obs.OFF.value
 
     def step(self, action: int):
-
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
+
         reward = 0
         self._query += 1
         ob = Obs.NULL.value

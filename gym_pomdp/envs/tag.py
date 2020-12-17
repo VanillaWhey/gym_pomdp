@@ -112,10 +112,9 @@ class TagEnv(Env):
         return [seed]
 
     def step(self, action: int):  # state
-        # action are idx of movements
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
-        # assert self.done == False
 
         reward = 0.
         self.time += 1

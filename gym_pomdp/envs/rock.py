@@ -160,8 +160,8 @@ class RockEnv(Env):
         np.random.seed(seed)
 
     def step(self, action: int):
-
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
 
         self.last_action = action
@@ -494,7 +494,8 @@ class StochasticRockEnv(RockEnv):
         self.done = False
 
     def step(self, action: int):
-        assert self.action_space.contains(action)
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
 
         self.last_action = action

@@ -72,7 +72,6 @@ class BattleShipEnv(Env):
         self.num_obs = 2
         self._reward_range = self.action_space.n / 4.
         self._discount = 1.
-        self.total_remaining = len(ships)
         self.ships = np.sort(ships)[::-1]
 
         self.gui = None
@@ -98,10 +97,10 @@ class BattleShipEnv(Env):
             return int(ob == Obs.NULL.value)
 
     def step(self, action):
-
+        err_msg = "%r (%s) invalid" % (action, type(action))
+        assert self.action_space.contains(action), err_msg
         assert self.done is False
-        assert self.action_space.contains(action)
-        assert self.total_remaining > 0
+
         self.last_action = action
         self.t += 1
         action_pos = self.grid.get_coord(action)
@@ -166,7 +165,6 @@ class BattleShipEnv(Env):
                 self.gui.render(state=self.last_action, msg=msg)
 
     def _generate_legal(self):
-        # assert self.state.total_remaining > 0
         actions = []
         for action in range(self.action_space.n):
             action_pos = self.grid.get_coord(action)
