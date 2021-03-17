@@ -49,3 +49,4 @@ And [@manuel](https://github.com/manuel-delverme) for proof test.
 
 ## TODO
 - correct rendered orientation of Pocman [minor issue]
+- add catch the king (Metin2 Minigame) environment
