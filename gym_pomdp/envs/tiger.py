@@ -10,9 +10,9 @@ from gym_pomdp.envs.gui import TigerGui
 
 
 class Obs(Enum):
-    left = [1, 0]
-    right = [0, 1]
-    null = [0, 0]
+    left = np.array([1, 0])
+    right = np.array([0, 1])
+    null = np.array([0, 0])
 
 
 class State(Enum):
