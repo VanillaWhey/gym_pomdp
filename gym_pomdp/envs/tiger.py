@@ -41,7 +41,7 @@ class TigerEnv(gym.Env):
         self.correct_prob = correct_prob
         self.action_space = Discrete(len(Action))
         self.state_space = Discrete(len(State))
-        self.observation_space = gym.spaces.Box(low=0, high=np.ones(len(Obs)),
+        self.observation_space = gym.spaces.Box(low=0, high=np.ones(2),
                                                 dtype=np.int)
         self._discount = .95
         self._reward_range = 10
@@ -99,7 +99,7 @@ class TigerEnv(gym.Env):
                   " S: " + state_to_str(self.state)
             self.gui.render(state=(self.last_action, self.state), msg=msg)
         elif mode == "ansi":
-            print("Current step: {}, tiger is in state: {}, action took: {}"
+            print("Current step: {}, prize is in state: {}, action took: {}"
                   .format(self.t, self.state, self.last_action[0]))
         else:
             raise NotImplementedError()
@@ -120,7 +120,7 @@ class TigerEnv(gym.Env):
             if np.random.uniform() <= correct_prob:
                 return Obs[State(state).name].value
             else:
-                return Obs[State(state - 1).name].value
+                return Obs[State(1 - state).name].value
 
     @staticmethod
     def _local_move(state, last_action, last_ob):
