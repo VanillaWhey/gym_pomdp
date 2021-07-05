@@ -10,9 +10,9 @@ from gym_pomdp.envs.gui import TigerGui
 
 
 class Obs(Enum):
-    left = np.array([1, 0])
-    right = np.array([0, 1])
-    null = np.array([0, 0])
+    left = [1, 0]
+    right = [0, 1]
+    null = [0, 0]
 
 
 class State(Enum):
@@ -61,7 +61,7 @@ class TigerEnv(gym.Env):
         self._query = 0
         self.state = self.state_space.sample()
         self.last_action = Action.listen.value
-        return Obs.null.value
+        return np.array(Obs.null.value)
 
     def seed(self, seed=1234):
         np.random.seed(seed)
@@ -115,12 +115,14 @@ class TigerEnv(gym.Env):
     @staticmethod
     def _sample_ob(action, state, correct_prob=.85):
         if action != Action.listen.value:
-            return Obs.null.value
+            ob = Obs.null.value
         else:
             if np.random.uniform() <= correct_prob:
-                return Obs[State(state).name].value
+                ob = Obs[State(state).name].value
             else:
-                return Obs[State(1 - state).name].value
+                ob = Obs[State(1 - state).name].value
+
+        return np.array(ob)
 
     @staticmethod
     def _local_move(state, last_action, last_ob):
