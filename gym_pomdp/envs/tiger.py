@@ -4,44 +4,34 @@ import gym
 import numpy as np
 from gym.spaces import Discrete
 
+import time
+
 from gym_pomdp.envs.gui import TigerGui
 
 
 class Obs(Enum):
-    LEFT = 0
-    RIGHT = 1
-    NULL = 2
+    left = [1, 0]
+    right = [0, 1]
+    null = [0, 0]
 
 
 class State(Enum):
-    LEFT = 0
-    RIGHT = 1
+    left = 0
+    right = 1
 
 
 class Action(Enum):
-    LEFT = 0
-    RIGHT = 1
-    LISTEN = 2
+    left = 0
+    right = 1
+    listen = 2
 
 
 def state_to_str(state):
-    if state == 0:
-        return "left"
-    elif state == 1:
-        return "right"
-    else:
-        raise NotImplementedError()
+    return State(state).name
 
 
 def action_to_str(action):
-    if action == 0:
-        return "left"
-    elif action == 1:
-        return "right"
-    elif action == 2:
-        return "listen"
-    else:
-        raise NotImplementedError()
+    return Action(action).name
 
 
 class TigerEnv(gym.Env):
@@ -51,10 +41,10 @@ class TigerEnv(gym.Env):
         self.correct_prob = correct_prob
         self.action_space = Discrete(len(Action))
         self.state_space = Discrete(len(State))
-        self.observation_space = Discrete(len(Obs))
+        self.observation_space = gym.spaces.Box(low=0, high=np.ones(len(Obs)),
+                                                dtype=np.int)
         self._discount = .95
         self._reward_range = 10
-        self._query = 0
         self.seed(seed)
 
         self.done = False
@@ -70,8 +60,8 @@ class TigerEnv(gym.Env):
         self.t = 0
         self._query = 0
         self.state = self.state_space.sample()
-        self.last_action = Action.LISTEN.value
-        return Obs.NULL.value
+        self.last_action = Action.listen.value
+        return Obs.null.value
 
     def seed(self, seed=1234):
         np.random.seed(seed)
@@ -86,14 +76,17 @@ class TigerEnv(gym.Env):
         self._query += 1
         self.last_action = action
 
-        rw = TigerEnv._compute_rw(self.state, action)
-        if TigerEnv._is_terminal(self.state, action):
+        if action == Action.listen.value:
+            rw = -1
+        else:
             self.done = True
-            return self.state, rw, self.done, {'state': self.state}
 
-        self._sample_state(action)
+            if TigerEnv._is_terminal(self.state, action):
+                rw = 10
+            else:  # wrong door (tiger)
+                rw = -100
+
         ob = TigerEnv._sample_ob(action, self.state)
-        self.done = False
         return ob, rw, self.done, {"state": self.state}
 
     def render(self, mode='human', close=False):
@@ -114,6 +107,25 @@ class TigerEnv(gym.Env):
     def close(self):
         self.render(close=True)
 
+    @staticmethod
+    def _is_terminal(state, action):
+        return ((action == Action.left.value and state == State.left.value) or
+                (action == Action.right.value and state == State.right.value))
+
+    @staticmethod
+    def _sample_ob(action, state, correct_prob=.85):
+        if action != Action.listen.value:
+            return Obs.null.value
+        else:
+            if np.random.uniform() <= correct_prob:
+                return Obs[State(state).name].value
+            else:
+                return Obs[State(state - 1).name].value
+
+    @staticmethod
+    def _local_move(state, last_action, last_ob):
+        raise NotImplementedError()
+
     def _set_state(self, state):
         self.state = state
         self.done = False
@@ -125,7 +137,7 @@ class TigerEnv(gym.Env):
         return self._generate_legal()
 
     def _sample_state(self, action):
-        if action == Action.RIGHT.value or action == Action.LEFT.value:
+        if action == Action.right.value or action == Action.left.value:
             self.state = self.state_space.sample()
 
     def _get_init_state(self):
@@ -135,52 +147,17 @@ class TigerEnv(gym.Env):
     @staticmethod
     def _compute_prob(action, next_state, ob, correct_prob=.85):
         p_ob = 0.0
-        if action == Action.LISTEN.value and ob != Obs.NULL.value:
-            if (next_state == State.LEFT.value and ob == Obs.LEFT.value) or (
-                    next_state == State.RIGHT.value and ob == Obs.RIGHT.value):
+        if action == Action.listen.value and ob != Obs.null.value:
+            if (next_state == State.left.value and ob == Obs.left.value) or (
+                    next_state == State.right.value and ob == Obs.right.value):
                 p_ob = correct_prob
             else:
                 p_ob = 1 - correct_prob
-        elif action != Action.LISTEN.value and ob == Obs.NULL.value:
+        elif action != Action.listen.value and ob == Obs.null.value:
             p_ob = 1.
 
         assert 0.0 <= p_ob <= 1.0
         return p_ob
-
-    @staticmethod
-    def _sample_ob(action, next_state, correct_prob=.85):
-        ob = Obs.NULL.value
-        p = np.random.uniform()
-        if action == Action.LISTEN.value:
-            if next_state == State.LEFT.value:
-                ob = Obs.RIGHT.value if p > correct_prob else Obs.LEFT.value
-            else:
-                ob = Obs.LEFT.value if p > correct_prob else Obs.RIGHT.value
-        return ob
-
-    @staticmethod
-    def _local_move(state, last_action, last_ob):
-        raise NotImplementedError()
-
-    @staticmethod
-    def _is_terminal(state, action):
-        is_terminal = False
-        if action != Action.LISTEN.value:
-            is_terminal = (
-                (action == Action.LEFT.value and state == State.LEFT.value) or
-                (action == Action.RIGHT.value and state == State.RIGHT.value))
-        return is_terminal
-
-    @staticmethod
-    def _compute_rw(state, action):
-        if action == Action.LISTEN.value:
-            reward = -1
-        elif not TigerEnv._is_terminal(state, action):
-            reward = 10
-        else:
-            reward = -20
-        return reward
-
 
 if __name__ == '__main__':
     env = TigerEnv(seed=100)
@@ -191,11 +168,14 @@ if __name__ == '__main__':
 
     env.render()
     while not done:
+        time.sleep(1)
         a = env.action_space.sample()
         obs, r, done, info = env.step(a)
         env.render()
 
         rws += r
         t += 1
+
+    time.sleep(1)
     env.close()
     print("Ep done with rw {} and t {}".format(rws, t))

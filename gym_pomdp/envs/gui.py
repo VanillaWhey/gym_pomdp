@@ -253,10 +253,11 @@ class TigerGui(GridGui):
 
         action, state = state
 
-        if action < 2 and action == state:
-            self.board[state].draw(img=self.assets["_CAT"])
-        elif action < 2 and action != state:
-            self.board[action].draw(img=self.assets["_BEER"])
+        if action < 2:
+            if action == state:
+                self.board[state].draw(img=self.assets["_BEER"])
+            else:
+                self.board[action].draw(img=self.assets["_CAT"])
         else:
             self.draw(update_board=True)
 
