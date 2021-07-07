@@ -3,6 +3,7 @@ from enum import Enum
 import numpy as np
 from gym.core import Env
 from gym.spaces import Discrete
+from gym.utils import seeding
 
 
 # restrict depth of the policy
@@ -46,9 +47,12 @@ class NetworkEnv(Env):
         self.last_action = None
         self.state = None
         self._server = 0
+        self.np_random = None
+        self.seed()
 
     def seed(self, seed=None):
-        np.random.seed(seed)
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
     def _compute_prob(self, action, next_state, ob):
 
@@ -105,19 +109,19 @@ class NetworkEnv(Env):
         for idx in range(self._n_machines):
             if self.state[idx]:
                 if not n_failures[idx]:
-                    self.state[idx] = 1 - np.random.binomial(1, p=self._p)
+                    self.state[idx] = 1 - self.np_random.binomial(1, p=self._p)
                 else:
-                    self.state[idx] = 1 - np.random.binomial(1, p=self._q)
+                    self.state[idx] = 1 - self.np_random.binomial(1, p=self._q)
 
         if action < self._n_machines * 2:
             machine, reboot = divmod(action, 2)
             if reboot:
                 reward -= 2.5
                 self.state[machine] = 1
-                ob = np.random.binomial(1, p=self._p_ob)
+                ob = self.np_random.binomial(1, p=self._p_ob)
             else:
                 reward -= .1
-                if np.random.binomial(1, p=self._p_ob):
+                if self.np_random.binomial(1, p=self._p_ob):
                     ob = self.state[machine]
                 else:
                     ob = 1 - self.state[machine]
@@ -144,7 +148,7 @@ class NetworkEnv(Env):
         return self._generate_legal()
 
     def sample_action(self):
-        return np.random.choice(self._generate_legal())
+        return self.np_random.choice(self._generate_legal())
 
     @staticmethod
     def make_ring_neighbours(n_machines):

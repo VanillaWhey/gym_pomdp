@@ -22,7 +22,7 @@ class Coord(namedtuple("Coord", ["x", "y"])):
 
 
 class Tile(object):
-    def __init__(self, coord=(0, 0)):
+    def __init__(self, coord):
         self.coord = coord
 
     def set_value(self, value):
@@ -30,12 +30,17 @@ class Tile(object):
 
 
 class Grid(object):
-    def __init__(self, x_size=10, y_size=5):
+    def __init__(self, x_size=10, y_size=5, rng=None):
         self.x_size = x_size
         self.y_size = y_size
         self.n_tiles = self.x_size * self.y_size
         self.board = []
         self.build_board()
+
+        if rng is None:
+            self.rng = np.random.RandomState()
+        else:
+            self.rng = rng
 
     def __iter__(self):
         return iter(self.board)
@@ -67,7 +72,7 @@ class Grid(object):
         return Coord(idx % self.x_size, idx // self.x_size)
 
     def sample(self):
-        return self.get_coord(np.random.randint(self.n_tiles))
+        return self.get_coord(self.rng.randint(self.n_tiles))
 
     @property
     def get_size(self):
@@ -92,7 +97,7 @@ class Grid(object):
         elif d == 1:  # right
             return c2.x - c1.x
         elif d == 2:  # down
-            return c1.y - c2.x
+            return c1.y - c2.y
         elif d == 3:  # left
             return c1.x - c2.x
         else:
@@ -106,13 +111,9 @@ class Moves(Enum):
     WEST = Coord(-1, 0)
     NULL = Coord(0, 0)
 
-    @staticmethod
-    def get_coord(idx):
-        return list(Moves)[idx].value
-
-    @staticmethod
-    def sample():
-        return np.random.randint(len(Moves))
+    @classmethod
+    def get_coord(cls, idx):
+        return list(cls)[idx].value
 
 
 class TestCoord(TestCase):
@@ -122,8 +123,6 @@ class TestCoord(TestCase):
     assert (Coord(2, 2) + Moves.WEST.value) == Coord(1, 2)
     assert (Coord(2, 2) + Moves.SOUTH.value) == Coord(2, 1)
     assert (Coord(2, 2) + Moves.EAST.value) == Coord(3, 2)
-
-    # grid = Grid()
 
 
 if __name__ == "__main__":

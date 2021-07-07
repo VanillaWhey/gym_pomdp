@@ -3,6 +3,7 @@ from enum import Enum
 import numpy as np
 from gym import Env
 from gym.spaces import Discrete
+from gym.utils import seeding
 
 from gym_pomdp.envs.coord import Grid, Coord
 from gym_pomdp.envs.gui import ShipGui
@@ -31,9 +32,9 @@ class Obs(Enum):
 
 
 class Ship(object):
-    def __init__(self, coord, length):
+    def __init__(self, coord, length, direction):
         self.pos = coord
-        self.direction = np.random.randint(4)
+        self.direction = direction
         self.length = length
 
 
@@ -51,9 +52,9 @@ class Cell(object):
 
 
 class BattleGrid(Grid):
-    def __init__(self, board_size):
+    def __init__(self, board_size, rng=None):
         self.board = []
-        super().__init__(*board_size)
+        super().__init__(*board_size, rng)
 
     def build_board(self, value=0):
         self.board = []
@@ -82,8 +83,13 @@ class BattleShipEnv(Env):
         self.last_action = -1
         self.state = None
 
+        self.np_random = None
+        self.seed()
+
     def seed(self, seed=None):
-        np.random.seed(seed)
+        self.np_random, seed = seeding.np_random(seed)
+        self.grid.rng = self.np_random
+        return [seed]
 
     def _compute_prob(self, action, ob):
 
@@ -179,7 +185,9 @@ class BattleShipEnv(Env):
 
         for length in self.ships:
             while True:  # add one ship of each kind
-                ship = Ship(coord=self.grid.sample(), length=length)
+                ship = Ship(coord=self.grid.sample(),
+                            length=length,
+                            direction=self.np_random.randint(4))
                 if not self.collision(ship, self.grid):
                     break
             self.mark_ship(ship, self.grid, ship_state)

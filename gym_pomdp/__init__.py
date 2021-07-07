@@ -76,7 +76,8 @@ register(
 )
 register(
     id="StochasticRock-v0",
-    entry_point="gym_pomdp.envs:StochasticRockEvn"
+    kwargs={"p_move": 0.8},
+    entry_point="gym_pomdp.envs:RockEnv"
 )
 
 # Network
@@ -111,4 +112,10 @@ register(
     id="TMaze-v3",
     kwargs={"length": 70},
     entry_point="gym_pomdp.envs:TMazeEnv"
+)
+
+# light dark domain
+register(
+    id="LightDark-v0",
+    entry_point="gym_pomdp.envs:LightDarkEnvironment"
 )

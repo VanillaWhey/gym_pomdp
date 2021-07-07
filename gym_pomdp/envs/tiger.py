@@ -3,6 +3,7 @@ from enum import Enum
 import gym
 import numpy as np
 from gym.spaces import Discrete
+from gym.utils import seeding
 
 import time
 
@@ -10,9 +11,9 @@ from gym_pomdp.envs.gui import TigerGui
 
 
 class Obs(Enum):
-    left = [1, 0]
-    right = [0, 1]
-    null = [0, 0]
+    left = 0
+    right = 1
+    null = 2
 
 
 class State(Enum):
@@ -26,26 +27,18 @@ class Action(Enum):
     listen = 2
 
 
-def state_to_str(state):
-    return State(state).name
-
-
-def action_to_str(action):
-    return Action(action).name
-
-
 class TigerEnv(gym.Env):
     metadata = {"render.modes": ["human", "ansi"]}
 
-    def __init__(self, seed=0, correct_prob=.85):
+    def __init__(self, correct_prob=.85):
         self.correct_prob = correct_prob
         self.action_space = Discrete(len(Action))
         self.state_space = Discrete(len(State))
-        self.observation_space = gym.spaces.Box(low=0, high=np.ones(2),
-                                                dtype=np.int)
+        self.observation_space = Discrete(len(Obs))
         self._discount = .95
         self._reward_range = 10
-        self.seed(seed)
+        self.np_random = None
+        self.seed()
 
         self.done = False
         self.t = 0
@@ -63,8 +56,9 @@ class TigerEnv(gym.Env):
         self.last_action = Action.listen.value
         return np.array(Obs.null.value)
 
-    def seed(self, seed=1234):
-        np.random.seed(seed)
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        self.state_space.seed(seed)
         return [seed]
 
     def step(self, action):
@@ -77,16 +71,16 @@ class TigerEnv(gym.Env):
         self.last_action = action
 
         if action == Action.listen.value:
+            ob = self._sample_ob()
             rw = -1
         else:
             self.done = True
-
+            ob = Obs.null.value
             if TigerEnv._is_terminal(self.state, action):
                 rw = 10
             else:  # wrong door (tiger)
                 rw = -100
 
-        ob = TigerEnv._sample_ob(action, self.state)
         return ob, rw, self.done, {"state": self.state}
 
     def render(self, mode='human', close=False):
@@ -95,8 +89,8 @@ class TigerEnv(gym.Env):
         if mode == "human":
             if self.gui is None:
                 self.gui = TigerGui()
-            msg = "A: " + action_to_str(self.last_action) +\
-                  " S: " + state_to_str(self.state)
+            msg = "A: " + Action(self.last_action).name +\
+                  " S: " + State(self.state).name
             self.gui.render(state=(self.last_action, self.state), msg=msg)
         elif mode == "ansi":
             print("Current step: {}, prize is in state: {}, action took: {}"
@@ -112,17 +106,11 @@ class TigerEnv(gym.Env):
         return ((action == Action.left.value and state == State.left.value) or
                 (action == Action.right.value and state == State.right.value))
 
-    @staticmethod
-    def _sample_ob(action, state, correct_prob=.85):
-        if action != Action.listen.value:
-            ob = Obs.null.value
+    def _sample_ob(self):
+        if self.np_random.uniform() <= self.correct_prob:
+            return Obs[State(self.state).name].value
         else:
-            if np.random.uniform() <= correct_prob:
-                ob = Obs[State(state).name].value
-            else:
-                ob = Obs[State(1 - state).name].value
-
-        return np.array(ob)
+            return Obs[State(1 - self.state).name].value
 
     @staticmethod
     def _local_move(state, last_action, last_ob):
@@ -161,8 +149,10 @@ class TigerEnv(gym.Env):
         assert 0.0 <= p_ob <= 1.0
         return p_ob
 
+
 if __name__ == '__main__':
-    env = TigerEnv(seed=100)
+    env = TigerEnv()
+    env.seed(100)
     rws = 0
     t = 0
     done = False

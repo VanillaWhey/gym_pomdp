@@ -3,6 +3,7 @@ from enum import Enum
 import numpy as np
 from gym import Env
 from gym.spaces import Discrete
+from gym.utils import seeding
 
 from gym_pomdp.envs.coord import Grid, Coord, Moves
 from gym_pomdp.envs.gui import PocGui
@@ -108,7 +109,7 @@ class PocState(object):
     def __init__(self, pos=(0, 0)):
         self.agent_pos = pos
         self.ghosts = []
-        self.food_pos = []
+        self.food_pos = np.array([])
         self.power_step = 0
         self.action = 0
 
@@ -151,6 +152,8 @@ def select_maze(maze):
 
 class PocEnv(Env):
     def __init__(self, maze, obs_array=False):
+        self.np_random = None
+        self.seed()
         self.board = select_maze(maze)
         self.grid = PocGrid(board=self.board["_maze"])
         self._get_init_state()
@@ -171,7 +174,8 @@ class PocEnv(Env):
             self._zero = lambda: 0
 
     def seed(self, seed=None):
-        np.random.seed(seed)
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
     def is_power(self, idx):
         return self.board['_maze'][idx] == 3
@@ -277,7 +281,7 @@ class PocEnv(Env):
             poc_state.ghosts.append(Ghost(pos=self.grid.get_coord(g[0]),
                                           direction=g[1]))
         poc_state.power_step = state[-1]
-        poc_state.food_pos = state[self.board["_num_ghosts"] * 3: -1].tolist()
+        poc_state.food_pos = np.array(state[self.board["_num_ghosts"] * 3: -1])
         return poc_state
 
     def _see_ghost(self, action):
@@ -336,8 +340,8 @@ class PocEnv(Env):
             pos = Coord(ghost_home.x + g % 2, ghost_home.y + g // 2)
             self.state.ghosts.append(Ghost(pos, direction=-1))
 
-        self.state.food_pos = np.random.binomial(1, config["_food_prob"],
-                                                 size=self.grid.n_tiles)
+        self.state.food_pos = self.np_random.binomial(1, config["_food_prob"],
+                                                      size=self.grid.n_tiles)
         # only make free space food
         idx = (self.board["_maze"] > 0) &\
               (self.state.food_pos.reshape(self.board["_maze"].shape) > 0)
@@ -372,7 +376,7 @@ class PocEnv(Env):
             self._move_random(g)
 
     def _move_aggressive(self, g):
-        if not np.random.binomial(1, p=config["_chase_prob"]):
+        if not self.np_random.binomial(1, p=config["_chase_prob"]):
             return self._move_random(g)
 
         best_dist = self.grid.x_size + self.grid.y_size
@@ -392,7 +396,7 @@ class PocEnv(Env):
         self.state.ghosts[g].update(best_pos, best_dir)
 
     def _move_defensive(self, g, defensive_prob=.5):
-        if np.random.binomial(1, defensive_prob) and\
+        if self.np_random.binomial(1, defensive_prob) and\
                 self.state.ghosts[g].direction >= 0:
             self.state.ghosts[g].direction = -1
             return

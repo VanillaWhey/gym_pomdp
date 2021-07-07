@@ -28,6 +28,8 @@ class TMazeEnv(gym.Env):
         self.obs = []
 
         self.done = False
+        self.np_random = None
+        self.seed()
 
     def step(self, action: int):
         err_msg = "%r (%s) invalid" % (action, type(action))
@@ -69,7 +71,7 @@ class TMazeEnv(gym.Env):
         return np.array(self.obs), reward, self.done, {"state": self.pos}
 
     def reset(self):
-        self.dir = np.random.randint(0, 2)
+        self.dir = self.np_random.randint(2)
         self.pos = 0
         self.done = False
         obs = np.array([self.dir, 1, 1 - self.dir])
@@ -89,5 +91,5 @@ class TMazeEnv(gym.Env):
         pass
 
     def seed(self, seed=None):
-        _, seed = seeding.np_random(seed)
+        self.np_random, seed = seeding.np_random(seed)
         return [seed]
