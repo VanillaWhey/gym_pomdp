@@ -1,34 +1,35 @@
 import numpy as np
 
 from gym import Wrapper
-from gym.spaces import Box
+from gym.spaces import Box, flatten_space, flatten
 
 
 class ActionObsWrapper(Wrapper):
     """
     This wrapper augments the observations by adding the last actions.
+    Therefore, the observations and actions are flattened before.
     """
     def __init__(self, env):
         super().__init__(env)
-        assert len(self.env.observation_space.shape) == 1
-        assert len(self.env.action_space.shape) == 1
 
-        shape = (self.env.observation_space.shape[0] +
-                 self.env.action_space.shape[0],)
+        action_space = flatten_space(env.action_space)
+        observation_space = flatten_space(env.observation_space)
 
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=shape,
+        low = np.append(observation_space.low, action_space.low)
+        high = np.append(observation_space.high, action_space.high)
+
+        self.observation_space = Box(low=low, high=high,
                                      dtype=env.observation_space.dtype)
 
     def reset(self, **kwargs):
-        obs = np.append(self.env.reset(**kwargs),
-                        np.zeros(self.action_space.shape))
-        return obs
+        obs = flatten(self.env.observation_space, self.env.reset(**kwargs))
+        action = flatten(self.env.action_space,
+                         np.zeros(self.env.observation_space.shape, dtype=int))
+        return np.append(obs, action)
 
     def step(self, action):
-        """
-        Args:
-            action (array_like):
-        """
         obs, reward, done, info = self.env.step(action)
-        obs = np.append(obs, action)
-        return obs, reward, done, info
+        print(obs, action)
+        obs = flatten(self.env.observation_space, obs)
+        action = flatten(self.env.action_space, action)
+        return np.append(obs, action), reward, done, info
