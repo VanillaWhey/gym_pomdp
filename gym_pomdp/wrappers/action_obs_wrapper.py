@@ -29,7 +29,6 @@ class ActionObsWrapper(Wrapper):
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
-        print(obs, action)
         obs = flatten(self.env.observation_space, obs)
         action = flatten(self.env.action_space, action)
         return np.append(obs, action), reward, done, info
