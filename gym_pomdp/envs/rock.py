@@ -118,7 +118,7 @@ class RockEnv(Env):
             self.grid.board[rock] = idx
 
         self.p_move = p_move
-        if p_move:
+        if p_move < 1.0:
             self._penalization = 0
         else:
             self._penalization = -100
